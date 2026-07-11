@@ -6,14 +6,14 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   _req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: { id: string } },
 ) {
   try {
     if (!isDbConfigured()) {
       return Response.json({ ok: true, players: [], rooms: [], matches: [], invites: [], messages: [], scores: [] });
     }
 
-    const { id } = await params;
+    const { id } = params;
     const matchId = Number(id);
     if (!Number.isFinite(matchId)) {
       return Response.json({ error: "invalid id" }, { status: 400 });
@@ -30,10 +30,10 @@ export async function GET(
 // Leave / cancel a waiting match
 export async function DELETE(
   _req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: { id: string } },
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const matchId = Number(id);
     const [match] = await db.select().from(matches).where(eq(matches.id, matchId));
     if (match && (match.status === "waiting" || match.status === "invited")) {

@@ -7,14 +7,14 @@ export const dynamic = "force-dynamic";
 // Poll signals addressed to me (or broadcast), not sent by me.
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: { id: string } },
 ) {
   try {
     if (!isDbConfigured()) {
       return Response.json({ ok: true, players: [], rooms: [], matches: [], invites: [], messages: [], scores: [] });
     }
 
-    const { id } = await params;
+    const { id } = params;
     const roomId = Number(id);
     const { searchParams } = new URL(req.url);
     const code = String(searchParams.get("code") ?? "").trim().toUpperCase();
@@ -47,10 +47,10 @@ export async function GET(
 // Post a signal (offer/answer/ice/hangup).
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: { id: string } },
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const roomId = Number(id);
     const { code, toId, kind, payload } = await req.json();
     const c = String(code ?? "").trim().toUpperCase();

@@ -6,10 +6,10 @@ export const dynamic = "force-dynamic";
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: { id: string } },
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const roomId = Number(id);
     const { code } = await req.json();
     const c = String(code ?? "").trim().toUpperCase();

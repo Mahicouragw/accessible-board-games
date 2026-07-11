@@ -89,10 +89,10 @@ async function applyResult(match: {
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: { id: string } },
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const matchId = Number(id);
     const { code, move } = await req.json();
     const cleanCode = String(code ?? "").trim().toUpperCase();

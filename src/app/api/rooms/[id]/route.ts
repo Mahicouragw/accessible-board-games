@@ -6,14 +6,14 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   _req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: { id: string } },
 ) {
   try {
     if (!isDbConfigured()) {
       return Response.json({ ok: true, players: [], rooms: [], matches: [], invites: [], messages: [], scores: [] });
     }
 
-    const { id } = await params;
+    const { id } = params;
     const [room] = await db.select().from(rooms).where(eq(rooms.id, Number(id)));
     if (!room) return Response.json({ error: "not found" }, { status: 404 });
     return Response.json({ room });

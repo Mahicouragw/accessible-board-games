@@ -7,14 +7,14 @@ export const dynamic = "force-dynamic";
 // Fetch messages after a given id (for polling).
 export async function GET(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: { id: string } },
 ) {
   try {
     if (!isDbConfigured()) {
       return Response.json({ ok: true, players: [], rooms: [], matches: [], invites: [], messages: [], scores: [] });
     }
 
-    const { id } = await params;
+    const { id } = params;
     const roomId = Number(id);
     const { searchParams } = new URL(req.url);
     const after = Number(searchParams.get("after") ?? 0);
@@ -36,10 +36,10 @@ export async function GET(
 // Send a text or voice message.
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: { id: string } },
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
     const roomId = Number(id);
     const { code, kind, content } = await req.json();
     const c = String(code ?? "").trim().toUpperCase();
