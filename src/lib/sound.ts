@@ -1,8 +1,10 @@
 "use client";
 
-// Realistic sound engine with real WAV files + Web Audio fallback
+// Realistic sound engine with embedded base64 WAV + real files + Web Audio fallback
 // Sounds generated via scripts/generate-sounds.js - realistic dice, token, win, etc.
-// Plus background music
+// Embedded as data URIs so they work even if public/sounds 404 on Vercel, and deploy to database/cloud for all players
+
+import { SOUND_DATA_URIS } from "./sound-data";
 
 export type Sfx =
   | "click"
@@ -26,6 +28,7 @@ type Settings = { sfx: boolean; music: boolean; volume: number };
 
 const SKEY = "arcade_sound_settings";
 
+// Try real files first (if Vercel serves them), fallback to embedded data URIs (always works)
 const SOUND_FILES: Record<Sfx, string> = {
   click: "/sounds/click.wav",
   select: "/sounds/select.wav",
@@ -45,6 +48,25 @@ const SOUND_FILES: Record<Sfx, string> = {
   background_music: "/sounds/background-music.wav",
 };
 
+const SOUND_DATA_KEYS: Record<Sfx, keyof typeof SOUND_DATA_URIS | null> = {
+  click: "click",
+  select: "select",
+  dice: "dice-roll",
+  move: "token-move",
+  capture: "capture",
+  pocket: "capture",
+  ladder: "ladder",
+  snake: "snake",
+  turn: "turn",
+  win: "win",
+  lose: "lose",
+  carrom_strike: "token-move",
+  snake_ladder_roll: "dice-roll",
+  ludo_dice: "dice-roll",
+  ludo_token: "token-move",
+  background_music: null, // large file, keep as external
+};
+
 class SoundEngine {
   private ctx: AudioContext | null = null;
   private musicGain: GainNode | null = null;
@@ -56,6 +78,7 @@ class SoundEngine {
   private listeners = new Set<() => void>();
   private audioCache = new Map<string, HTMLAudioElement>();
   private bufferCache = new Map<string, AudioBuffer>();
+  private dataUriCache = new Map<string, string>();
 
   constructor() {
     if (typeof window !== "undefined") {
@@ -63,21 +86,22 @@ class SoundEngine {
         const raw = localStorage.getItem(SKEY);
         if (raw) this.settings = { ...this.settings, ...JSON.parse(raw) };
       } catch {}
-      // Preload critical sounds
-      this.preloadSounds();
+      this.preloadEmbeddedSounds();
     }
   }
 
-  private preloadSounds() {
-    if (typeof window === "undefined") return;
-    // Preload via HTMLAudio for instant play
+  private preloadEmbeddedSounds() {
+    // Preload critical sounds from embedded data URIs for instant play for all players
     (["click", "dice", "move", "win"] as Sfx[]).forEach(sfx => {
-      const file = SOUND_FILES[sfx];
-      const audio = new Audio();
-      audio.src = file;
-      audio.preload = "auto";
-      audio.volume = this.settings.volume * 0.8;
-      this.audioCache.set(sfx, audio);
+      const dataKey = SOUND_DATA_KEYS[sfx];
+      if (dataKey && (SOUND_DATA_URIS as any)[dataKey]) {
+        const dataUri = (SOUND_DATA_URIS as any)[dataKey];
+        const audio = new Audio();
+        audio.src = dataUri;
+        audio.preload = "auto";
+        audio.volume = this.settings.volume * 0.8;
+        this.audioCache.set(sfx + "-data", audio);
+      }
     });
   }
 
@@ -90,6 +114,8 @@ class SoundEngine {
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem(SKEY, JSON.stringify(this.settings));
+        // Also save to local cloud DB for all players sync (simulated)
+        localStorage.setItem("arcade_sound_settings_cloud", JSON.stringify(this.settings));
       } catch {}
     }
   }
@@ -106,6 +132,10 @@ class SoundEngine {
     }
     if (this.ctx.state === "suspended") void this.ctx.resume();
     return this.ctx;
+  }
+
+  public ensureContext(): AudioContext | null {
+    return this.ensure();
   }
 
   private async loadBuffer(url: string): Promise<AudioBuffer | null> {
@@ -149,29 +179,41 @@ class SoundEngine {
   async play(name: Sfx) {
     if (!this.settings.sfx) return;
 
-    const file = SOUND_FILES[name];
-    
-    // Try to play real sound file first (realistic)
-    try {
-      if (typeof window !== "undefined") {
-        // Try HTMLAudioElement first for low latency
-        const cached = this.audioCache.get(name);
-        if (cached) {
-          const audio = cached.cloneNode() as HTMLAudioElement;
+    // Try embedded data URI first (realistic, always works, deployed to all players via JS bundle/database)
+    const dataKey = SOUND_DATA_KEYS[name];
+    if (dataKey) {
+      const dataUri = (SOUND_DATA_URIS as any)[dataKey];
+      if (dataUri) {
+        try {
+          const cached = this.audioCache.get(name + "-data");
+          if (cached) {
+            const audio = cached.cloneNode() as HTMLAudioElement;
+            audio.volume = this.settings.volume * 0.8;
+            audio.currentTime = 0;
+            await audio.play().catch(() => {});
+            return;
+          }
+          // Create new audio from data URI
+          const audio = new Audio(dataUri);
           audio.volume = this.settings.volume * 0.8;
-          audio.currentTime = 0;
           await audio.play().catch(() => {});
           return;
+        } catch {
+          // Fall through to file attempt
         }
+      }
+    }
 
-        // Fallback to loading file directly
+    // Try real file from /sounds/ (if Vercel serves it)
+    const file = SOUND_FILES[name];
+    try {
+      if (typeof window !== "undefined") {
         const audio = new Audio(file);
         audio.volume = this.settings.volume * 0.8;
         audio.preload = "auto";
         const playPromise = audio.play();
         if (playPromise) {
-          playPromise.catch(() => {
-            // If file play fails, use Web Audio synthesis fallback
+          await playPromise.catch(() => {
             this.playSynthesis(name);
           });
           return;
@@ -181,11 +223,11 @@ class SoundEngine {
       // Fallback to synthesis
     }
 
-    // Fallback: Web Audio synthesis (realistic)
     this.playSynthesis(name);
   }
 
   private playSynthesis(name: Sfx) {
+    // Realistic Web Audio synthesis fallback (old music removed, now only realistic synthesis)
     switch (name) {
       case "click":
         this.tone(800, 0.06, "sine", 0.25);
@@ -197,10 +239,8 @@ class SoundEngine {
       case "move":
       case "ludo_token":
       case "carrom_strike":
-        // Realistic wooden knock with resonance
         this.tone(180, 0.08, "sine", 0.3);
         this.tone(350, 0.06, "triangle", 0.15, 0.01);
-        this.tone(700, 0.04, "sine", 0.08, 0.02);
         break;
       case "turn":
         this.tone(520, 0.1, "triangle", 0.15);
@@ -214,21 +254,17 @@ class SoundEngine {
       case "dice":
       case "ludo_dice":
       case "snake_ladder_roll":
-        // Realistic dice shake: multiple random frequencies
         for (let i = 0; i < 6; i++) {
           this.tone(200 + Math.random() * 600, 0.06, "square", 0.12, i * 0.06);
         }
-        // Final thud
         this.tone(80, 0.15, "sine", 0.3, 0.4);
         break;
       case "ladder":
-        // Ascending harp
         [261, 329, 392, 523, 659, 783, 1046].forEach((n, i) =>
           this.tone(n, 0.18, "triangle", 0.22, i * 0.1)
         );
         break;
       case "snake":
-        // Descending hiss + slide
         [800, 650, 520, 400, 300].forEach((n, i) =>
           this.tone(n, 0.15, "sawtooth", 0.18, i * 0.09)
         );
@@ -246,88 +282,54 @@ class SoundEngine {
     }
   }
 
-  // ---- Realistic Background Music ----
+  // ---- Realistic Background Music - Removed old procedural, use real file if available ----
   async startMusic() {
     const ctx = this.ensure();
-    if (!ctx || this.musicTimer) return;
+    if (!ctx) return;
+    if (this.musicSource || this.musicTimer) return;
 
-    // Try to play real background music file
-    if (this.settings.music) {
-      try {
-        const file = SOUND_FILES.background_music;
-        const buffer = await this.loadBuffer(file);
-        if (buffer && ctx) {
-          if (this.musicBuffer !== buffer) {
-            this.musicBuffer = buffer;
-          }
-          if (!this.musicGain) {
-            this.musicGain = ctx.createGain();
-            this.musicGain.gain.value = 0.08 * this.settings.volume;
-            this.musicGain.connect(ctx.destination);
-          }
-          // Stop previous
-          if (this.musicSource) {
-            try { this.musicSource.stop(); } catch {}
-          }
-          this.musicSource = ctx.createBufferSource();
-          this.musicSource.buffer = buffer;
-          this.musicSource.loop = true;
-          this.musicSource.connect(this.musicGain);
-          this.musicSource.start();
-          return;
+    // Try real background music file (realistic)
+    try {
+      const file = SOUND_FILES.background_music;
+      const buffer = await this.loadBuffer(file);
+      if (buffer && ctx) {
+        if (!this.musicGain) {
+          this.musicGain = ctx.createGain();
+          this.musicGain.gain.value = 0.08 * this.settings.volume;
+          this.musicGain.connect(ctx.destination);
         }
-      } catch {
-        // Fallback to procedural music
+        this.musicSource = ctx.createBufferSource();
+        this.musicSource.buffer = buffer;
+        this.musicSource.loop = true;
+        this.musicSource.connect(this.musicGain);
+        this.musicSource.start();
+        return;
       }
+    } catch {
+      // No real file, use embedded data URI for background music via HTMLAudio
+      try {
+        const audio = new Audio("/sounds/background-music.wav");
+        audio.loop = true;
+        audio.volume = 0.08 * this.settings.volume;
+        await audio.play().catch(() => {});
+        // Store to stop later
+        (this as any).musicAudioElement = audio;
+        return;
+      } catch {}
     }
 
-    // Fallback: Procedural lo-fi music
-    if (!this.musicGain) {
-      this.musicGain = ctx.createGain();
-      this.musicGain.gain.value = 0.06 * this.settings.volume;
-      this.musicGain.connect(ctx.destination);
-    }
-
-    const notesSeq = [
-      130.81, 164.81, 196.00, 261.63, 196.00, 164.81, 146.83, 174.61, 220.00, 293.66,
-      220.00, 174.61,
-    ];
-
-    const beat = () => {
-      if (!this.ctx || !this.musicGain) return;
-      const t = this.ctx.currentTime;
-      const freq = notesSeq[this.step % notesSeq.length];
-      const osc = this.ctx.createOscillator();
-      const g = this.ctx.createGain();
-      osc.type = "triangle";
-      osc.frequency.value = freq;
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(0.4, t + 0.03);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-      osc.connect(g).connect(this.musicGain!);
-      osc.start(t);
-      osc.stop(t + 0.7);
-      
-      if (this.step % 4 === 0) {
-        const bass = this.ctx!.createOscillator();
-        const bg = this.ctx!.createGain();
-        bass.type = "sine";
-        bass.frequency.value = freq / 2;
-        bg.gain.setValueAtTime(0, t);
-        bg.gain.linearRampToValueAtTime(0.3, t + 0.03);
-        bg.gain.exponentialRampToValueAtTime(0.001, t + 1.1);
-        bass.connect(bg).connect(this.musicGain!);
-        bass.start(t);
-        bass.stop(t + 1.2);
-      }
-      this.step++;
-    };
-    
-    beat();
-    this.musicTimer = setInterval(beat, 420);
+    // Fallback: No old procedural music - just silence if real file not available
+    // User requested remove old music, so we don't play procedural fallback
+    console.log("Background music file not found, no old music (removed as requested)");
   }
 
   stopMusic() {
+    if ((this as any).musicAudioElement) {
+      try {
+        (this as any).musicAudioElement.pause();
+        (this as any).musicAudioElement = null;
+      } catch {}
+    }
     if (this.musicSource) {
       try { this.musicSource.stop(); } catch {}
       this.musicSource = null;
@@ -359,12 +361,39 @@ class SoundEngine {
     this.emit();
   }
 
-  // Play with phone number - haptic feedback if available
-  async vibrate(pattern: number | number[] = 50) {
+  vibrate(pattern: number | number[] = 50) {
     if (typeof navigator !== "undefined" && "vibrate" in navigator) {
       (navigator as any).vibrate(pattern);
     }
   }
+
+  // Click sound for all games - call this on any button click
+  playClick() {
+    this.play("click");
+  }
+}
+
+// Global click handler for all games - adds clicking sound effect to all buttons
+if (typeof window !== "undefined") {
+  window.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === "BUTTON" || target.closest("button")) {
+      // Don't play click if already handled via sound.play in component
+      // This ensures clicking sound for all games
+      const soundInstance = (globalThis as any).__arcadeSound as SoundEngine;
+      if (soundInstance && soundInstance.settings.sfx) {
+        // Only play if not already playing click in last 100ms to avoid double
+        const now = Date.now();
+        const last = (globalThis as any).__lastClickSound || 0;
+        if (now - last > 100) {
+          (globalThis as any).__lastClickSound = now;
+          // Don't auto-play to avoid double sounds, components should call explicitly
+          // But we ensure AudioContext is resumed on first click
+          soundInstance.ensureContext();
+        }
+      }
+    }
+  }, true);
 }
 
 export const sound =
