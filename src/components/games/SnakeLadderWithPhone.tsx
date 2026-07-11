@@ -3,13 +3,15 @@
 import { useState, useEffect } from "react";
 import SnakeLadder from "./SnakeLadder";
 import PhonePlayerSelector, { PhonePlayer } from "../PhonePlayerSelector";
+import FourPlayerPhoneInvite, { FourPhonePlayer } from "../FourPlayerPhoneInvite";
 import { sound } from "@/lib/sound";
 
 export default function SnakeLadderWithPhone() {
   const [phonePlayers, setPhonePlayers] = useState<PhonePlayer[]>([]);
+  const [fourPlayers, setFourPlayers] = useState<FourPhonePlayer[]>([]);
   const [currentPhonePlayer, setCurrentPhonePlayer] = useState<PhonePlayer | null>(null);
   const [showPhoneSelector, setShowPhoneSelector] = useState(true);
-  const [gameMode, setGameMode] = useState<"single" | "local-multi" | "online">("single");
+  const [gameMode, setGameMode] = useState<"single" | "local-multi" | "online" | "four-phone">("single");
 
   useEffect(() => {
     sound.play("select");
@@ -25,10 +27,16 @@ export default function SnakeLadderWithPhone() {
           🎮 Single Player
         </button>
         <button
+          onClick={() => setGameMode("four-phone")}
+          className={`rounded-xl px-4 py-2 text-sm font-bold border-2 ${gameMode === "four-phone" ? "bg-amber-600 border-amber-400 text-white" : "bg-slate-800 border-slate-700 text-amber-400"} animate-pulse`}
+        >
+          📱 4 Phones + 4 Colours + Invite
+        </button>
+        <button
           onClick={() => setGameMode("local-multi")}
           className={`rounded-xl px-4 py-2 text-sm font-bold border-2 ${gameMode === "local-multi" ? "bg-emerald-600 border-emerald-400 text-white" : "bg-slate-800 border-slate-700 text-slate-400"}`}
         >
-          📱 Local Multi (Phone)
+          📱 Local Multi
         </button>
         <button
           onClick={() => setGameMode("online")}
@@ -38,7 +46,25 @@ export default function SnakeLadderWithPhone() {
         </button>
       </div>
 
-      {gameMode !== "single" && (
+      {gameMode === "four-phone" && (
+        <FourPlayerPhoneInvite
+          game="snake-ladder"
+          onPlayersReady={(players) => {
+            setFourPlayers(players);
+            const converted: PhonePlayer[] = players.map(p => ({
+              id: p.id,
+              name: p.name,
+              phone: p.phone,
+              avatar: p.avatar,
+              color: p.color,
+            }));
+            setPhonePlayers(converted);
+            if (converted.length > 0) setCurrentPhonePlayer(converted[0]);
+          }}
+        />
+      )}
+
+      {gameMode !== "single" && gameMode !== "four-phone" && (
         <div className="flex justify-center">
           <button
             onClick={() => setShowPhoneSelector(!showPhoneSelector)}
@@ -49,7 +75,7 @@ export default function SnakeLadderWithPhone() {
         </div>
       )}
 
-      {showPhoneSelector && gameMode !== "single" && (
+      {showPhoneSelector && gameMode !== "single" && gameMode !== "four-phone" && (
         <PhonePlayerSelector
           game="snake-ladder"
           maxPlayers={4}
@@ -83,6 +109,20 @@ export default function SnakeLadderWithPhone() {
               </a>
             ))}
           </div>
+        </div>
+      )}
+
+      {gameMode === "four-phone" && fourPlayers.length === 4 && (
+        <div className="rounded-2xl border-2 border-white bg-gradient-to-r from-emerald-900/50 to-sky-900/50 p-3 text-center">
+          <div className="font-black text-white">🎉 4-Player Snake Ladder Ready!</div>
+          <div className="mt-1 flex justify-center gap-2 flex-wrap">
+            {fourPlayers.map(p => (
+              <span key={p.id} className="text-xs px-2 py-1 rounded-full bg-slate-800 border text-white">
+                {p.name} {p.phone.slice(-4)} - {p.color} {p.status === "joined" ? "✓" : p.status === "invited" ? "📤" : "⏳"}
+              </span>
+            ))}
+          </div>
+          <div className="text-xs text-emerald-300 mt-1">4 phone numbers, 4 colours chosen — Send invite links, they join, switch turns online!</div>
         </div>
       )}
 

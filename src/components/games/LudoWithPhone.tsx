@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Ludo from "./Ludo";
 import PhonePlayerSelector, { PhonePlayer } from "../PhonePlayerSelector";
+import FourPlayerPhoneInvite, { FourPhonePlayer } from "../FourPlayerPhoneInvite";
 import { sound } from "@/lib/sound";
 
 const COLOR_MAP: Record<string, string> = {
@@ -11,9 +12,11 @@ const COLOR_MAP: Record<string, string> = {
 
 export default function LudoWithPhone() {
   const [phonePlayers, setPhonePlayers] = useState<PhonePlayer[]>([]);
+  const [fourPlayers, setFourPlayers] = useState<FourPhonePlayer[]>([]);
   const [currentPhonePlayer, setCurrentPhonePlayer] = useState<PhonePlayer | null>(null);
   const [showPhoneSelector, setShowPhoneSelector] = useState(true);
-  const [gameMode, setGameMode] = useState<"single" | "local-multi" | "online">("single");
+  const [showFourPlayer, setShowFourPlayer] = useState(true);
+  const [gameMode, setGameMode] = useState<"single" | "local-multi" | "online" | "four-phone">("single");
 
   useEffect(() => {
     sound.play("select");
@@ -34,23 +37,29 @@ export default function LudoWithPhone() {
           onClick={() => setGameMode("single")}
           className={`rounded-xl px-4 py-2 text-sm font-bold border-2 ${gameMode === "single" ? "bg-violet-600 border-violet-400 text-white" : "bg-slate-800 border-slate-700 text-slate-400"}`}
         >
-          🎮 Single Player vs AI
+          🎮 Single vs AI
+        </button>
+        <button
+          onClick={() => setGameMode("four-phone")}
+          className={`rounded-xl px-4 py-2 text-sm font-bold border-2 ${gameMode === "four-phone" ? "bg-amber-600 border-amber-400 text-white" : "bg-slate-800 border-slate-700 text-amber-400"} animate-pulse`}
+        >
+          📱 4 Phones + 4 Colours + Invite
         </button>
         <button
           onClick={() => setGameMode("local-multi")}
           className={`rounded-xl px-4 py-2 text-sm font-bold border-2 ${gameMode === "local-multi" ? "bg-emerald-600 border-emerald-400 text-white" : "bg-slate-800 border-slate-700 text-slate-400"}`}
         >
-          📱 Local Multi (Phone)
+          📱 Local Multi
         </button>
         <button
           onClick={() => setGameMode("online")}
           className={`rounded-xl px-4 py-2 text-sm font-bold border-2 ${gameMode === "online" ? "bg-sky-600 border-sky-400 text-white" : "bg-slate-800 border-slate-700 text-slate-400"}`}
         >
-          🌐 Online Multi
+          🌐 Online
         </button>
       </div>
 
-      {gameMode !== "single" && (
+      {gameMode !== "single" && gameMode !== "four-phone" && (
         <div className="flex justify-center">
           <button
             onClick={() => setShowPhoneSelector(!showPhoneSelector)}
@@ -61,7 +70,26 @@ export default function LudoWithPhone() {
         </div>
       )}
 
-      {showPhoneSelector && gameMode !== "single" && (
+      {gameMode === "four-phone" && (
+        <FourPlayerPhoneInvite
+          game="ludo"
+          onPlayersReady={(players) => {
+            setFourPlayers(players);
+            // Convert to PhonePlayer format for compatibility
+            const converted: PhonePlayer[] = players.map(p => ({
+              id: p.id,
+              name: p.name,
+              phone: p.phone,
+              avatar: p.avatar,
+              color: p.color,
+            }));
+            setPhonePlayers(converted);
+            if (converted.length > 0) setCurrentPhonePlayer(converted[0]);
+          }}
+        />
+      )}
+
+      {showPhoneSelector && gameMode !== "single" && gameMode !== "four-phone" && (
         <PhonePlayerSelector
           game="ludo"
           maxPlayers={4}
@@ -100,6 +128,20 @@ export default function LudoWithPhone() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {gameMode === "four-phone" && fourPlayers.length === 4 && (
+        <div className="rounded-2xl border-2 border-white bg-gradient-to-r from-violet-900/50 to-emerald-900/50 p-3 text-center">
+          <div className="font-black text-white">🎉 4-Player Ludo Ready! Each Chooses One Colour!</div>
+          <div className="mt-1 flex justify-center gap-2 flex-wrap">
+            {fourPlayers.map(p => (
+              <span key={p.id} className="text-xs px-2 py-1 rounded-full bg-slate-800 border text-white">
+                {p.name} {p.phone.slice(-4)} - {p.color} {p.status === "joined" ? "✓ Joined" : p.status === "invited" ? "📤 Invited" : "⏳ Waiting"}
+              </span>
+            ))}
+          </div>
+          <div className="text-xs text-emerald-300 mt-1">All 4 phone numbers added, all 4 colours chosen (Red, Green, Yellow, Blue) — Send invitation links, they join, choose colour, switch turns online!</div>
         </div>
       )}
 
