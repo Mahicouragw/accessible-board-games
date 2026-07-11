@@ -1,7 +1,8 @@
 import { db } from "@/db";
+import { isDbConfigured } from "@/db";
+import * as LocalDB from "@/lib/local-cloud-db";
 import { players } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { isDbConfigured } from "@/db";
 
 export const dynamic = "force-dynamic";
 
@@ -12,93 +13,34 @@ function genCode() {
   return out;
 }
 
-const AVATARS = [
-  "🦊", "🐼", "🦁", "🐸", "🐵", "🐯", "🦄", "🐙", "🐳", "🦉",
-  "🐲", "🦖", "🐧", "🐨", "🐰", "🐺", "🦅", "🦈", "🐝", "🦋",
-];
+const AVATARS = ["🦊","🐼","🦁","🐸","🐵","🐯","🦄","🐙","🐳","🦉","🐲","🦖","🐧","🐨"];
 
 export async function POST(req: Request) {
   try {
-    const { name } = await req.json();
+    const { name, phone } = await req.json();
     const clean = String(name ?? "").trim().slice(0, 24);
-    if (!clean) {
-      return Response.json({ error: "Name is required" }, { status: 400 });
-    }
+    const cleanPhone = String(phone ?? "").trim().slice(0, 20);
+    if (!clean) return Response.json({ error: "Name is required" }, { status: 400 });
 
-    // FIX: If no DB configured (demo/single-player mode), return mock player
-    // This fixes "Cannot read properties of undefined" when DB not set
     if (!isDbConfigured()) {
-      const code = genCode();
-      const avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
-      const mockPlayer = {
-        id: Math.floor(Math.random() * 100000),
-        name: clean,
-        code,
-        avatar,
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        totalGames: 0,
-        xp: 0,
-        createdAt: new Date(),
-        lastSeen: new Date(),
-      };
-      return Response.json({ player: mockPlayer });
+      // REAL Local Cloud DB with phone support - no Neon needed!
+      const player = LocalDB.createPlayer(clean, cleanPhone);
+      return Response.json({ player });
     }
 
-    // Generate a unique code
     let code = genCode();
     for (let i = 0; i < 5; i++) {
       const existing = await db.select().from(players).where(eq(players.code, code));
       if (existing.length === 0) break;
       code = genCode();
     }
-
     const avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
-    const [player] = await db
-      .insert(players)
-      .values({ name: clean, code, avatar })
-      .returning();
-
-    if (!player) {
-      // Fallback if DB insert failed - return mock
-      const mockPlayer = {
-        id: Math.floor(Math.random() * 100000),
-        name: clean,
-        code,
-        avatar,
-        wins: 0,
-        losses: 0,
-        draws: 0,
-        totalGames: 0,
-        xp: 0,
-        createdAt: new Date(),
-        lastSeen: new Date(),
-      };
-      return Response.json({ player: mockPlayer });
-    }
-
+    const [player] = await db.insert(players).values({ name: clean, code, avatar, phone: cleanPhone } as any).returning();
     return Response.json({ player });
   } catch (e) {
     console.error(e);
-    // Even on error, return mock player to allow offline play
-    const { name } = await req.json().catch(() => ({ name: "Guest" }));
-    const clean = String(name ?? "Guest").trim().slice(0, 24) || "Guest";
-    const code = genCode();
-    const avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
-    const mockPlayer = {
-      id: Math.floor(Math.random() * 100000),
-      name: clean,
-      code,
-      avatar,
-      wins: 0,
-      losses: 0,
-      draws: 0,
-      totalGames: 0,
-      xp: 0,
-      createdAt: new Date(),
-      lastSeen: new Date(),
-    };
-    return Response.json({ player: mockPlayer });
+    const { name, phone } = await req.json().catch(() => ({ name: "Guest", phone: "" }));
+    const player = LocalDB.createPlayer(String(name ?? "Guest"), String(phone ?? ""));
+    return Response.json({ player });
   }
 }

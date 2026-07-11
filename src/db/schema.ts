@@ -8,12 +8,13 @@ import {
   jsonb,
 } from "drizzle-orm/pg-core";
 
-// Players — login with name, receive a unique code (ID) to log back in with.
+// Players — login with name, phone, receive a unique code (ID) to log back in with.
 export const players = pgTable("players", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   code: text("code").notNull().unique(),
   avatar: text("avatar").notNull().default("🎮"),
+  phone: text("phone"), // NEW: Phone number for inviting via phone
   wins: integer("wins").notNull().default(0),
   losses: integer("losses").notNull().default(0),
   draws: integer("draws").notNull().default(0),
@@ -56,6 +57,8 @@ export type RoomMember = {
   name: string;
   avatar: string;
   role: "player" | "spectator";
+  phone?: string;
+  color?: string;
 };
 
 // Live game rooms / parties — anyone can join or spectate, up to 4 players.
@@ -102,5 +105,16 @@ export const signals = pgTable("signals", {
   toId: integer("to_id").notNull(), // 0 = broadcast
   kind: text("kind").notNull(), // offer | answer | ice | hangup
   payload: jsonb("payload"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// NEW: Phone-based player sessions for Ludo/Snake Ladder local multiplayer switching
+export const phoneSessions = pgTable("phone_sessions", {
+  id: serial("id").primaryKey(),
+  phone: text("phone").notNull(),
+  playerId: integer("player_id").notNull(),
+  playerName: text("player_name").notNull(),
+  game: text("game").notNull(),
+  roomCode: text("room_code"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

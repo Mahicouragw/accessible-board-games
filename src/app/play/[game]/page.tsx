@@ -11,7 +11,9 @@ import Memory from "@/components/games/Memory";
 import Game2048 from "@/components/games/Game2048";
 import Snake from "@/components/games/Snake";
 import Ludo from "@/components/games/Ludo";
+import LudoWithPhone from "@/components/games/LudoWithPhone";
 import SnakeLadder from "@/components/games/SnakeLadder";
+import SnakeLadderWithPhone from "@/components/games/SnakeLadderWithPhone";
 import Carrom from "@/components/games/Carrom";
 import Leaderboard from "@/components/Leaderboard";
 
@@ -104,8 +106,8 @@ function PlayPageInner({ params }: { params: { game: string } }) {
           {game === "memory" && <Memory />}
           {game === "2048" && <Game2048 />}
           {game === "snake" && <Snake />}
-          {game === "ludo" && <Ludo />}
-          {game === "snake-ladder" && <SnakeLadder />}
+          {game === "ludo" && <LudoWithPhone />}
+          {game === "snake-ladder" && <SnakeLadderWithPhone />}
           {game === "carrom" && <Carrom />}
         </div>
         <aside className="space-y-4">
