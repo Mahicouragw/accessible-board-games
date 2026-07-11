@@ -137,7 +137,7 @@ export default function LudoWithPhone() {
           <div className="mt-1 flex justify-center gap-2 flex-wrap">
             {fourPlayers.map(p => (
               <span key={p.id} className="text-xs px-2 py-1 rounded-full bg-slate-800 border text-white">
-                {p.name} {p.phone.slice(-4)} - {p.color} {p.status === "joined" ? "✓ Joined" : p.status === "invited" ? "📤 Invited" : "⏳ Waiting"}
+                {p.name} {(p.phone || "").slice(-4)} - {p.color} {p.status === "joined" ? "✓ Joined" : p.status === "invited" ? "📤 Invited" : "⏳ Waiting"}
               </span>
             ))}
           </div>

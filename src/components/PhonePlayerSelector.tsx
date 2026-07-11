@@ -6,7 +6,7 @@ import { sound } from "@/lib/sound";
 export type PhonePlayer = {
   id: number;
   name: string;
-  phone: string;
+  phone?: string;
   avatar: string;
   color: string;
 };

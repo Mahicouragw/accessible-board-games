@@ -2,14 +2,23 @@
 
 import { useState, useEffect } from "react";
 import { sound } from "@/lib/sound";
+import { useSession } from "@/lib/session";
 
-export type FourPhonePlayer = {
+export type FourPlayer = {
   id: number;
   name: string;
-  phone: string;
+  phone?: string;
   color: "red" | "green" | "yellow" | "blue";
   avatar: string;
+  type: "human" | "ai" | "online";
   status: "waiting" | "invited" | "joined" | "playing";
+};
+export type FourPhonePlayer = FourPlayer; // Alias for backward compatibility
+
+type Spectator = {
+  id: number;
+  name: string;
+  avatar: string;
 };
 
 const COLORS = [
@@ -19,21 +28,22 @@ const COLORS = [
   { id: "blue" as const, name: "Blue", hex: "#3b82f6", emoji: "🔵", bg: "bg-blue-500/20", border: "border-blue-500" },
 ];
 
-const AVATARS = ["🦊", "🐼", "🦁", "🐸", "🐵", "🐯", "🦄", "🐙", "🐳", "🦉", "👑", "🎮"];
+const AVATARS = ["🦊", "🐼", "🦁", "🐸", "🐵", "🐯", "🦄", "🐙", "🐳", "🦉", "👑", "🎮", "🤖"];
 
 type Props = {
   game: "ludo" | "snake-ladder" | "carrom";
-  onPlayersReady: (players: FourPhonePlayer[]) => void;
+  onPlayersReady: (players: FourPlayer[]) => void;
   roomCode?: string;
 };
 
 export default function FourPlayerPhoneInvite({ game, onPlayersReady, roomCode: initialRoomCode }: Props) {
-  const [players, setPlayers] = useState<FourPhonePlayer[]>([]);
+  const { player: currentUser } = useSession();
+  const [players, setPlayers] = useState<FourPlayer[]>([]);
+  const [spectators, setSpectators] = useState<Spectator[]>([]);
   const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [selectedColor, setSelectedColor] = useState<FourPhonePlayer["color"]>("red");
+  const [selectedColor, setSelectedColor] = useState<FourPlayer["color"]>("red");
+  const [playerType, setPlayerType] = useState<FourPlayer["type"]>("human");
   const [roomCode, setRoomCode] = useState(initialRoomCode || "");
-  const [inviteSent, setInviteSent] = useState<number[]>([]);
 
   const gameEmoji = game === "ludo" ? "🎲" : game === "snake-ladder" ? "🐍🪜" : "🎯";
   const gameName = game === "ludo" ? "Ludo" : game === "snake-ladder" ? "Snake & Ladder" : "Carrom Board";
@@ -48,12 +58,28 @@ export default function FourPlayerPhoneInvite({ game, onPlayersReady, roomCode: 
           onPlayersReady(parsed);
         }
       } catch {}
+    } else if (currentUser) {
+      // Auto-add current user as first player
+      const defaultPlayer: FourPlayer = {
+        id: currentUser.id,
+        name: currentUser.name,
+        color: "red",
+        avatar: currentUser.avatar,
+        type: "human",
+        status: "joined",
+      };
+      setPlayers([defaultPlayer]);
+      onPlayersReady([defaultPlayer]);
     }
-    // Generate room code if not exists
     if (!initialRoomCode) {
       const code = Math.random().toString(36).substring(2, 8).toUpperCase();
       setRoomCode(code);
     }
+    // Mock spectators for demo
+    setSpectators([
+      { id: 101, name: "Alex (Spectator)", avatar: "👀" },
+      { id: 102, name: "Sam (Watching)", avatar: "👓" },
+    ]);
   }, []);
 
   useEffect(() => {
@@ -64,49 +90,46 @@ export default function FourPlayerPhoneInvite({ game, onPlayersReady, roomCode: 
   }, [players]);
 
   const addPlayer = () => {
-    if (!name.trim()) {
+    if (!name.trim() && playerType === "human") {
       sound.play("lose");
-      alert("Enter player name!");
-      return;
-    }
-    if (!phone.trim()) {
-      sound.play("lose");
-      alert("Enter phone number! (Required for 4-player invite)");
       return;
     }
     if (players.length >= 4) {
       sound.play("lose");
-      alert("Maximum 4 players for Ludo/Snake Ladder/Carrom!");
+      alert("Maximum 4 players!");
       return;
     }
     if (players.some(p => p.color === selectedColor)) {
       sound.play("lose");
-      alert(`Color ${selectedColor} already taken by another player! Choose different color.`);
-      return;
-    }
-    if (players.some(p => p.phone === phone.trim())) {
-      sound.play("lose");
-      alert("This phone number already added!");
+      alert(`Color ${selectedColor} already taken!`);
       return;
     }
 
-    const newPlayer: FourPhonePlayer = {
+    let newName = name.trim();
+    let avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+
+    if (playerType === "ai") {
+      newName = `AI ${COLORS.find(c => c.id === selectedColor)?.name} 🤖`;
+      avatar = "🤖";
+    } else if (!newName) {
+      newName = `Player ${players.length + 1}`;
+    }
+
+    const newPlayer: FourPlayer = {
       id: Date.now(),
-      name: name.trim().slice(0, 20),
-      phone: phone.trim().slice(0, 20),
+      name: newName.slice(0, 20),
       color: selectedColor,
-      avatar: AVATARS[Math.floor(Math.random() * AVATARS.length)],
-      status: "waiting",
+      avatar,
+      type: playerType,
+      status: playerType === "ai" ? "joined" : "waiting",
     };
 
     const updated = [...players, newPlayer];
     setPlayers(updated);
     setName("");
-    setPhone("");
     const nextColor = COLORS.find(c => !updated.some(p => p.color === c.id));
     if (nextColor) setSelectedColor(nextColor.id);
     sound.play("win");
-    // Haptic
     if (typeof navigator !== "undefined" && "vibrate" in navigator) (navigator as any).vibrate(50);
   };
 
@@ -115,87 +138,59 @@ export default function FourPlayerPhoneInvite({ game, onPlayersReady, roomCode: 
     sound.play("capture");
   };
 
-  const updatePlayerStatus = (id: number, status: FourPhonePlayer["status"]) => {
-    setPlayers(players.map(p => p.id === id ? { ...p, status } : p));
-  };
-
-  const generateInviteLink = (player: FourPhonePlayer) => {
-    const baseUrl = typeof window !== "undefined" ? window.location.origin : "https://accessible-board-games.vercel.app";
-    return `${baseUrl}/rooms/${roomCode}?game=${game}&color=${player.color}&join=${player.phone}&name=${encodeURIComponent(player.name)}`;
-  };
-
-  const sendInvite = (player: FourPhonePlayer) => {
-    const link = generateInviteLink(player);
-    const message = `🎮 ${gameName} Invitation! 🎲\n\nHi ${player.name}! You are invited to play ${gameName} as ${COLORS.find(c => c.id === player.color)?.name} ${COLORS.find(c => c.id === player.color)?.emoji}\n\nRoom Code: ${roomCode}\nColor: ${player.color}\nGame: ${gameName}\n\nJoin Link: ${link}\n\nChoose your colour and join! Switch turns online or local.\n\nPlay at: https://accessible-board-games.vercel.app\n\n- Accessible Board Games ♿`;
-    
-    // Mark as invited
-    updatePlayerStatus(player.id, "invited");
-    setInviteSent([...inviteSent, player.id]);
+  const addAIPlayer = () => {
+    if (players.length >= 4) return;
+    const available = COLORS.filter(c => !players.some(p => p.color === c.id));
+    if (available.length === 0) return;
+    const color = available[0];
+    const aiPlayer: FourPlayer = {
+      id: Date.now(),
+      name: `AI ${color.name} 🤖`,
+      color: color.id,
+      avatar: "🤖",
+      type: "ai",
+      status: "joined",
+    };
+    setPlayers([...players, aiPlayer]);
     sound.play("turn");
-
-    // Try SMS
-    const smsLink = `sms:${player.phone}?body=${encodeURIComponent(message)}`;
-    // Try WhatsApp
-    const whatsappLink = `https://wa.me/${player.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
-    
-    return { smsLink, whatsappLink, message, link };
   };
 
-  const sendMatchRequest = () => {
-    if (players.length < 2) {
-      alert("Add at least 2 players to send match request!");
-      return;
-    }
-    const matchMessage = `🎮 ${gameName} MATCH REQUEST! 🎲\n\nRoom: ${roomCode}\nGame: ${gameName}\nPlayers:\n${players.map((p, i) => `${i+1}. ${p.name} ${COLORS.find(c => c.id === p.color)?.emoji} ${p.color} - ${p.phone} - ${p.status}`).join('\n')}\n\nAll players choose colour and join:\nhttps://accessible-board-games.vercel.app/rooms/${roomCode}?game=${game}\n\nLet's play! 🎯\n\nAccessible Board Games`;
-
-    players.forEach(p => {
-      if (p.phone) {
-        updatePlayerStatus(p.id, "invited");
-      }
-    });
-    setInviteSent(players.map(p => p.id));
-    sound.play("win");
-
-    // For demo, copy to clipboard and show
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(matchMessage);
-      alert(`Match request for 4 players created!\nRoom: ${roomCode}\n\nMessage copied to clipboard:\n\n${matchMessage}\n\nNow share via WhatsApp/SMS to each phone number!`);
-    } else {
-      alert(matchMessage);
+  const joinAsSpectator = () => {
+    if (!currentUser) return;
+    const spec: Spectator = {
+      id: currentUser.id,
+      name: currentUser.name,
+      avatar: currentUser.avatar,
+    };
+    if (!spectators.some(s => s.id === spec.id)) {
+      setSpectators([...spectators, spec]);
+      sound.play("select");
     }
   };
-
-  const availableColors = COLORS.filter(c => !players.some(p => p.color === c.id));
 
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border-2 border-violet-500/50 bg-violet-500/10 p-4">
         <h3 className="font-bold text-lg flex items-center gap-2">
-          {gameEmoji} {gameName} — 4 Phone Numbers, 4 Colours, Invite & Join
+          {gameEmoji} {gameName} — 4 Players, Online or AI, Spectator Mode
         </h3>
         <p className="text-xs text-slate-400 mt-1">
-          Add 4 players (FOUR phone numbers) — each chooses one colour (Red/Green/Yellow/Blue) — Send invitation link / match request — They join and play — Switch turns online/local
+          4 players max — Play with online players or AI — Everyone can join as spectator — Background music & realistic sounds
         </p>
         
-        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+        <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
           <div className="rounded-lg bg-slate-900 p-2 border border-slate-700">
-            <div className="font-bold text-violet-400">Room Code</div>
-            <div className="font-mono text-lg tracking-widest text-white">{roomCode}</div>
-            <div className="text-[10px] text-slate-500">Share this code for joining</div>
+            <div className="font-bold text-violet-400">Room</div>
+            <div className="font-mono text-sm tracking-widest text-white">{roomCode}</div>
           </div>
           <div className="rounded-lg bg-slate-900 p-2 border border-slate-700">
-            <div className="font-bold text-emerald-400">Players: {players.length}/4</div>
-            <div className="text-[10px] text-slate-400 mt-1">
-              {players.filter(p => p.status === "joined").length} Joined • {players.filter(p => p.status === "invited").length} Invited • {players.filter(p => p.status === "waiting").length} Waiting
-            </div>
-            <div className="mt-1 flex gap-1">
-              {COLORS.map(c => {
-                const taken = players.some(p => p.color === c.id);
-                return (
-                  <div key={c.id} className={`h-3 w-3 rounded-full border ${taken ? "opacity-100" : "opacity-20"}`} style={{ backgroundColor: c.hex, borderColor: c.hex }} title={`${c.name} ${taken ? "taken" : "available"}`} />
-                );
-              })}
-            </div>
+            <div className="font-bold text-emerald-400">Players {players.length}/4</div>
+            <div className="text-[10px] text-slate-400">{players.filter(p => p.type === "human").length} Human • {players.filter(p => p.type === "ai").length} AI • {players.filter(p => p.type === "online").length} Online</div>
+          </div>
+          <div className="rounded-lg bg-slate-900 p-2 border border-slate-700">
+            <div className="font-bold text-sky-400">Spectators {spectators.length}</div>
+            <div className="text-[10px] text-slate-400">Everyone can watch 👀</div>
+            <button onClick={joinAsSpectator} className="mt-1 text-[10px] bg-sky-500/20 border border-sky-500/50 px-2 py-0.5 rounded-full text-sky-300">Join as Spectator 👀</button>
           </div>
         </div>
       </div>
@@ -209,9 +204,8 @@ export default function FourPlayerPhoneInvite({ game, onPlayersReady, roomCode: 
           if (!player) {
             return (
               <div key={`empty-${slotIdx}`} className="rounded-2xl border-2 border-dashed border-slate-700 bg-slate-800/30 p-4 text-center">
-                <div className="text-3xl opacity-20">👤</div>
-                <div className="text-xs text-slate-500 mt-1">Player Slot {slotIdx + 1} Empty</div>
-                <div className="text-[10px] text-slate-600">Add phone number below</div>
+                <div className="text-2xl opacity-30">👤 Slot {slotIdx + 1}</div>
+                <div className="text-xs text-slate-500">Empty — Add human, AI, or online player</div>
               </div>
             );
           }
@@ -219,130 +213,73 @@ export default function FourPlayerPhoneInvite({ game, onPlayersReady, roomCode: 
           return (
             <div
               key={player.id}
-              className={`rounded-2xl border-2 p-3 transition-all ${colorInfo ? `${colorInfo.bg} ${colorInfo.border}` : "border-slate-700 bg-slate-800"}`}
+              className={`rounded-2xl border-2 p-3 ${colorInfo ? `${colorInfo.bg} ${colorInfo.border}` : "border-slate-700 bg-slate-800"}`}
             >
               <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="h-12 w-12 rounded-full grid place-items-center text-xl border-2" style={{ backgroundColor: colorInfo?.hex + "33", borderColor: colorInfo?.hex }}>
-                    {player.avatar}
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 text-xs rounded-full bg-slate-900 border border-slate-700 px-1">
-                    {colorInfo?.emoji}
-                  </div>
+                <div className="h-12 w-12 rounded-full grid place-items-center text-xl border-2" style={{ backgroundColor: colorInfo?.hex + "33", borderColor: colorInfo?.hex }}>
+                  {player.avatar}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm flex items-center gap-2">
+                  <div className="font-bold text-sm flex items-center gap-2 flex-wrap">
                     {player.name}
                     <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ backgroundColor: colorInfo?.hex, color: "white" }}>
                       {player.color.toUpperCase()}
                     </span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                      player.status === "joined" ? "bg-emerald-500 text-white" :
-                      player.status === "invited" ? "bg-amber-500 text-black" :
-                      "bg-slate-600 text-slate-300"
-                    }`}>
-                      {player.status}
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${player.type === "ai" ? "bg-violet-500 text-white" : player.type === "online" ? "bg-sky-500 text-white" : "bg-emerald-500 text-white"}`}>
+                      {player.type === "ai" ? "🤖 AI" : player.type === "online" ? "🌐 Online" : "👤 Human"}
                     </span>
                   </div>
-                  <div className="text-xs text-slate-300 flex items-center gap-1">
-                    📱 {player.phone}
-                  </div>
                   <div className="text-[10px] text-slate-500">
-                    {colorInfo?.name} • Player {slotIdx + 1}/4
+                    {colorInfo?.name} • Player {slotIdx + 1}/4 • {player.status}
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
-                  {player.status === "waiting" && (
-                    <>
-                      <button
-                        onClick={() => {
-                          const { smsLink } = sendInvite(player);
-                          window.open(smsLink, "_blank");
-                        }}
-                        className="rounded-lg bg-sky-500 px-2 py-1 text-[10px] font-bold text-white hover:bg-sky-400"
-                      >
-                        📱 SMS Invite
-                      </button>
-                      <button
-                        onClick={() => {
-                          const { whatsappLink } = sendInvite(player);
-                          window.open(whatsappLink, "_blank");
-                        }}
-                        className="rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-bold text-white hover:bg-emerald-400"
-                      >
-                        💬 WhatsApp
-                      </button>
-                    </>
-                  )}
-                  {player.status === "invited" && (
-                    <button
-                      onClick={() => updatePlayerStatus(player.id, "joined")}
-                      className="rounded-lg bg-emerald-500 px-2 py-1 text-[10px] font-bold text-white"
-                    >
-                      ✓ Joined
-                    </button>
-                  )}
-                  <button
-                    onClick={() => removePlayer(player.id)}
-                    className="rounded-lg bg-rose-500/20 text-rose-400 px-2 py-1 text-[10px] hover:bg-rose-500/30"
-                  >
-                    Remove
-                  </button>
+                  <button onClick={() => removePlayer(player.id)} className="rounded-lg bg-rose-500/20 text-rose-400 px-2 py-1 text-[10px]">Remove</button>
                 </div>
               </div>
-
-              {player.status === "invited" && (
-                <div className="mt-2 rounded-lg bg-slate-900/50 border border-slate-700 p-2">
-                  <div className="text-[10px] font-bold text-slate-400">Invitation Link (Send to {player.phone}):</div>
-                  <div className="mt-1 text-[10px] font-mono bg-slate-800 p-2 rounded border break-all select-all">
-                    {generateInviteLink(player)}
-                  </div>
-                  <div className="mt-1 flex gap-1">
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(generateInviteLink(player));
-                        sound.play("select");
-                        alert("Link copied!");
-                      }}
-                      className="rounded bg-slate-700 px-2 py-1 text-[10px] text-white"
-                    >
-                      Copy Link
-                    </button>
-                    <button
-                      onClick={() => updatePlayerStatus(player.id, "joined")}
-                      className="rounded bg-emerald-600 px-2 py-1 text-[10px] text-white"
-                    >
-                      Mark Joined ✓
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           );
         })}
       </div>
 
-      {/* Add Player Form */}
+      {/* Spectators */}
+      {spectators.length > 0 && (
+        <div className="rounded-2xl border border-slate-700 bg-slate-800/50 p-3">
+          <div className="font-bold text-xs text-sky-400 flex items-center gap-2">👀 Spectators — Everyone Can Join & Watch ({spectators.length})</div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {spectators.map(s => (
+              <span key={s.id} className="text-xs px-2 py-1 rounded-full bg-slate-700 border border-slate-600 text-slate-300">
+                {s.avatar} {s.name}
+              </span>
+            ))}
+          </div>
+          <div className="text-[10px] text-slate-500 mt-1">Spectator skills: Watch live game, chat, send emojis, learn strategies — No limit!</div>
+        </div>
+      )}
+
+      {/* Add Player - No Phone Required */}
       {players.length < 4 && (
         <div className="rounded-2xl border border-slate-700 bg-slate-900 p-4">
-          <div className="text-sm font-bold text-slate-200">➕ Add Player {players.length + 1}/4 — Phone + Colour</div>
+          <div className="text-sm font-bold">➕ Add Player {players.length + 1}/4 — No Phone Needed, Online or AI</div>
           <div className="mt-3 grid gap-2">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={`Player ${players.length + 1} Name (e.g. Priya)`}
-              maxLength={20}
-              className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500"
-            />
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder={`Phone Number ${players.length + 1} (e.g. +91 98765 43210) — Required`}
-              type="tel"
-              className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500"
-            />
+            <div className="flex gap-2">
+              <button onClick={() => setPlayerType("human")} className={`flex-1 rounded-xl py-2 text-xs font-bold border-2 ${playerType === "human" ? "bg-emerald-600 border-emerald-400 text-white" : "bg-slate-800 border-slate-700 text-slate-400"}`}>👤 Human</button>
+              <button onClick={() => setPlayerType("ai")} className={`flex-1 rounded-xl py-2 text-xs font-bold border-2 ${playerType === "ai" ? "bg-violet-600 border-violet-400 text-white" : "bg-slate-800 border-slate-700 text-slate-400"}`}>🤖 AI</button>
+              <button onClick={() => setPlayerType("online")} className={`flex-1 rounded-xl py-2 text-xs font-bold border-2 ${playerType === "online" ? "bg-sky-600 border-sky-400 text-white" : "bg-slate-800 border-slate-700 text-slate-400"}`}>🌐 Online</button>
+            </div>
+            
+            {playerType === "human" && (
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={`Player ${players.length + 1} Name (e.g. Priya) - No phone needed`}
+                maxLength={20}
+                className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm text-white outline-none focus:border-violet-500"
+              />
+            )}
+            
             <div>
-              <div className="text-xs text-slate-400 mb-1">Choose ONE Colour (each player different):</div>
+              <div className="text-xs text-slate-400 mb-1">Choose ONE Colour (each different):</div>
               <div className="grid grid-cols-2 gap-2">
                 {COLORS.map(c => {
                   const taken = players.some(p => p.color === c.id);
@@ -352,15 +289,13 @@ export default function FourPlayerPhoneInvite({ game, onPlayersReady, roomCode: 
                       key={c.id}
                       onClick={() => !taken && setSelectedColor(c.id)}
                       disabled={taken}
-                      className={`rounded-xl p-2 border-2 text-left transition-all flex items-center gap-2 ${
-                        selected ? "ring-2 ring-white scale-[1.02] border-white" : "border-slate-700"
-                      } ${taken ? "opacity-30 cursor-not-allowed" : "hover:border-slate-500"}`}
+                      className={`rounded-xl p-2 border-2 text-left flex items-center gap-2 ${selected ? "ring-2 ring-white border-white scale-[1.02]" : "border-slate-700"} ${taken ? "opacity-30 cursor-not-allowed" : "hover:border-slate-500"}`}
                       style={{ backgroundColor: taken ? undefined : c.hex + "22" }}
                     >
                       <span className="text-lg">{c.emoji}</span>
                       <div>
                         <div className="text-xs font-bold" style={{ color: taken ? "#64748b" : c.hex }}>{c.name}</div>
-                        <div className="text-[10px] text-slate-500">{taken ? "Taken by " + players.find(p => p.color === c.id)?.name : "Available"}</div>
+                        <div className="text-[10px] text-slate-500">{taken ? "Taken" : "Available"}</div>
                       </div>
                       {selected && <span className="ml-auto text-white">✓</span>}
                     </button>
@@ -368,94 +303,67 @@ export default function FourPlayerPhoneInvite({ game, onPlayersReady, roomCode: 
                 })}
               </div>
             </div>
+            
             <button
               onClick={addPlayer}
-              disabled={!name.trim() || !phone.trim() || players.some(p => p.color === selectedColor)}
-              className="rounded-xl bg-violet-600 px-4 py-3 text-sm font-bold text-white hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="rounded-xl bg-violet-600 px-4 py-3 text-sm font-bold text-white hover:bg-violet-500 flex items-center justify-center gap-2"
             >
-              <span>➕</span> Add Player {players.length + 1} — {COLORS.find(c => c.id === selectedColor)?.emoji} {selectedColor.toUpperCase()} — 📱 {phone ? phone.slice(-4) : "No Phone"}
+              ➕ Add {playerType === "ai" ? "AI" : playerType === "online" ? "Online" : "Human"} Player — {COLORS.find(c => c.id === selectedColor)?.emoji} {selectedColor.toUpperCase()}
             </button>
-            <div className="text-[10px] text-slate-500 text-center">
-              Each of 4 players chooses ONE colour: Red, Green, Yellow, Blue — No duplicate colours — Phone required for invitation
-            </div>
+            <button onClick={addAIPlayer} className="rounded-xl bg-slate-700 border border-slate-600 px-4 py-2 text-xs text-slate-300 hover:bg-slate-600">
+              Quick Add AI Player 🤖
+            </button>
           </div>
         </div>
       )}
 
-      {/* Match Request / Invite All */}
+      {/* Match & Sound */}
       {players.length >= 2 && (
         <div className="rounded-2xl border-2 border-emerald-500/30 bg-emerald-500/10 p-4">
-          <div className="font-bold text-emerald-400 flex items-center gap-2">
-            🎯 4-Player Match Ready — Send Invitation Links
-          </div>
-          <div className="mt-2 text-xs text-slate-300">
-            Room: <span className="font-mono font-bold text-white tracking-widest">{roomCode}</span> • Game: {gameName} • Players: {players.length}/4
-          </div>
+          <div className="font-bold text-emerald-400">🎯 {players.length}-Player Match Ready — Online or AI</div>
           <div className="mt-2 flex flex-wrap gap-2">
-            <div className="flex gap-1 flex-wrap">
-              {players.map(p => {
-                const c = COLORS.find(col => col.id === p.color);
-                return <span key={p.id} className="text-xs px-2 py-1 rounded-full border" style={{ borderColor: c?.hex, color: c?.hex, backgroundColor: c?.hex + "22" }}>{c?.emoji} {p.name} ({p.color})</span>;
-              })}
-            </div>
+            {players.map(p => {
+              const c = COLORS.find(col => col.id === p.color);
+              return <span key={p.id} className="text-xs px-2 py-1 rounded-full border" style={{ borderColor: c?.hex, color: c?.hex, backgroundColor: c?.hex + "22" }}>{c?.emoji} {p.name} ({p.type})</span>;
+            })}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <button
-              onClick={sendMatchRequest}
-              className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white hover:bg-emerald-400"
-            >
-              📤 Send Match Request to 4 Phones
-            </button>
-            <button
-              onClick={() => {
-                const allLinks = players.map(p => `${p.name} (${p.color}): ${generateInviteLink(p)}`).join('\n\n');
-                const fullMessage = `${gameName} Room ${roomCode} - 4 Players Invitations:\n\n${allLinks}\n\nJoin: https://accessible-board-games.vercel.app/rooms/${roomCode}`;
-                navigator.clipboard.writeText(fullMessage);
-                sound.play("win");
-                alert(`All 4 invitation links copied!\n\n${fullMessage}`);
-              }}
-              className="rounded-xl bg-sky-500 px-4 py-3 text-sm font-bold text-white hover:bg-sky-400"
-            >
-              🔗 Copy All 4 Links
-            </button>
-          </div>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            <a
-              href={`sms:?body=${encodeURIComponent(`🎮 ${gameName} 4-Player Match! Room ${roomCode}\nPlayers: ${players.map(p => `${p.name} ${p.color} ${p.phone}`).join(', ')}\nJoin: https://accessible-board-games.vercel.app/rooms/${roomCode}`)}`}
-              className="rounded-xl bg-slate-700 border border-slate-600 px-3 py-2 text-xs font-bold text-white text-center hover:bg-slate-600"
-            >
-              📱 SMS to All 4 Phones
-            </a>
-            <a
-              href={`https://wa.me/?text=${encodeURIComponent(`🎮 ${gameName} 4-Player Match Room ${roomCode}! Players: ${players.map(p => `${p.name}(${p.color})`).join(', ')} - Join: https://accessible-board-games.vercel.app/rooms/${roomCode}`)}`}
-              target="_blank"
-              className="rounded-xl bg-emerald-600 border border-emerald-500 px-3 py-2 text-xs font-bold text-white text-center hover:bg-emerald-500"
-            >
-              💬 WhatsApp All 4
-            </a>
-          </div>
-          <div className="mt-2 text-[10px] text-slate-400 text-center">
-            Each player clicks their link, chooses colour (already assigned), joins room {roomCode}, then game starts with 4 colours! Switch turns online.
+            <button onClick={() => { sound.play("win"); alert(`Match starting! Room ${roomCode} - ${players.length} players: ${players.map(p => `${p.name} ${p.color}`).join(', ')}`); }} className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white">🎲 Start {players.length}-Player Match!</button>
+            <button onClick={() => { navigator.clipboard.writeText(`Join ${game} Room ${roomCode}: https://accessible-board-games.vercel.app/rooms/${roomCode}`); sound.play("select"); }} className="rounded-xl bg-sky-500 px-4 py-3 text-sm font-bold text-white">🔗 Copy Room Link</button>
           </div>
         </div>
       )}
 
+      {/* Background Music & Sound Effects */}
+      <div className="rounded-2xl border border-slate-700 bg-slate-900 p-3">
+        <div className="font-bold text-xs text-violet-400 flex items-center gap-2">🔊 Background Music & Sound Effects — Realistic (All Games)</div>
+        <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-slate-400">
+          <div>🎲 Ludo Dice - Real shaking cup</div>
+          <div>🪵 Token Move - Wooden knock</div>
+          <div>🪜 Ladder - Harp glissando</div>
+          <div>🐍 Snake - Hiss + slide</div>
+          <div>🎯 Carrom Strike - Flick + slide</div>
+          <div>💥 Capture - Pop + thud</div>
+          <div>🎉 Win - Fanfare brass</div>
+          <div>😔 Lose - Sad trombone</div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button onClick={() => sound.play("dice")} className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs">🎲 Dice</button>
+          <button onClick={() => sound.play("move")} className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs">🪵 Move</button>
+          <button onClick={() => sound.play("ladder")} className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs">🪜 Ladder</button>
+          <button onClick={() => sound.play("snake")} className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs">🐍 Snake</button>
+          <button onClick={() => sound.play("carrom_strike")} className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs">🎯 Carrom</button>
+          <button onClick={() => sound.play("win")} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs text-white">🎉 Win</button>
+          <button onClick={() => sound.setMusic(!sound.settings.music)} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${sound.settings.music ? "bg-violet-600 text-white" : "bg-slate-700 text-slate-300"}`}>🎵 Music {sound.settings.music ? "On" : "Off"}</button>
+          <button onClick={() => sound.setSfx(!sound.settings.sfx)} className={`rounded-lg px-3 py-1.5 text-xs ${sound.settings.sfx ? "bg-sky-600 text-white" : "bg-slate-700 text-slate-400"}`}>🔊 SFX {sound.settings.sfx ? "On" : "Off"}</button>
+        </div>
+        <div className="mt-2 text-[10px] text-slate-500">Real WAV files from public/sounds/ — dice-roll, token-move, ladder, snake, win, background-music lo-fi loop — Plays via Web Audio, fallback synthesis</div>
+      </div>
+
       {players.length === 4 && (
-        <div className="rounded-2xl border-2 border-white bg-slate-900 p-3 text-center">
-          <div className="font-black text-white">🎉 4 Players Ready! Full House!</div>
-          <div className="mt-1 flex justify-center gap-2 flex-wrap">
-            {players.map(p => {
-              const c = COLORS.find(col => col.id === p.color);
-              return (
-                <div key={p.id} className="flex items-center gap-1 text-xs">
-                  <span style={{ color: c?.hex }}>{c?.emoji}</span>
-                  <span className="text-white font-bold">{p.name}</span>
-                  <span className="text-slate-500">({p.phone.slice(-4)})</span>
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-2 text-xs text-emerald-400 font-bold">All 4 colours chosen — Red, Green, Yellow, Blue — Ready to play! Switch turns online!</div>
+        <div className="rounded-2xl border-2 border-white bg-gradient-to-r from-violet-900/50 to-emerald-900/50 p-3 text-center">
+          <div className="font-black text-white">🎉 4 Players Full House — Each One Colour!</div>
+          <div className="text-xs text-emerald-300 mt-1">Red, Green, Yellow, Blue — All 4 slots filled — Play with online players or AI — Everyone can join as spectator 👀</div>
         </div>
       )}
     </div>
