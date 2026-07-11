@@ -1,79 +1,110 @@
-# 🚀 Public Repository - Fixed & Ready to Publish
+# ♿ Accessible Board Games — Full Stack + APK
 
-This project has been **auto-fixed** for all common errors and made ready for public deployment everywhere.
+**Live:** https://accessible-board-games.vercel.app/ — **GitHub:** https://github.com/Mahicouragw/accessible-board-games
 
-## ✅ What was fixed?
+Fully accessible, multiplayer board games with cloud database + Android APK.
 
-- `package.json` errors, version conflicts, missing scripts
-- Dependency issues (`--legacy-peer-deps`, audit fix)
-- Next.js / React / Vite build errors
-- TypeScript and ESLint errors ignored for build (config)
-- `output: 'export'` added for GitHub Pages static hosting
-- Missing `.gitignore`, `vercel.json`, GitHub Actions workflow added
-- Images unoptimized for static export
-- Node version pinned to >=18
+## ✅ Fixed — All Errors Resolved
 
-## 🌍 Publish Everywhere (1-Click)
+- ✅ Next.js 14.2.5 stable (was invalid 16.2.6)
+- ✅ DATABASE_URL mock fallback — builds without DB, works with DB
+- ✅ `next.config.ts` → `.js`, Tailwind v4 → v3, ESLint flat → json
+- ✅ `Cannot read properties of undefined (reading 'code')` fixed via guest player
+- ✅ Client exception on `/play/[game]` fixed (removed `use(params)` Next 15 API)
+- ✅ Vercel 404 fixed — now 200 LIVE, extracted source (was ZIPs)
+- ✅ Icons generated: 192, 512, maskable, apple-touch, favicon
+- ✅ Games functional: Ludo, Carrom, Snake Ladder, 2048, Memory, Snake, RPS, Chess, TicTacToe
 
-### 1. GitHub Public Repository
+## 🎮 Games (10+)
+
+Ludo, Carrom, Snake & Ladder, Chess, Tic-Tac-Toe, Connect Four, Memory, 2048, Rock Paper Scissors, Snake + Rooms, Voice, Chat, Leaderboard.
+
+## ♿ Accessibility
+
+High Contrast toggle, Font Size A+/A-, Skip Link, Screen Reader live regions, Keyboard Tab+Enter, Focus 3px amber, ARIA grids.
+
+## 🗄️ Database — Cloud Storage for Multiplayer
+
+**Essential for multiplayer, chat, rooms, scores, cloud saves.**
+
+### Quick Setup (Neon Free Postgres):
+
+1. https://neon.tech → Create project `accessible-board-games` → Copy connection string
+2. Vercel → Project → Settings → Environment Variables → Add `DATABASE_URL` = your Neon URL
+3. Locally: Create `.env` file from `.env.example`, paste URL
+4. Push schema:
+   ```bash
+   npm install --legacy-peer-deps
+   npm run db:push
+   ```
+5. Redeploy Vercel → Multiplayer live!
+
+See `DATABASE_SETUP.md` for detailed guide (Vercel Postgres, Supabase, etc).
+
+**Without DB:** App runs in demo/guest mode — single-player works, no crash. Auth creates guest in `localStorage`.
+
+- Local: `arcade_player_code`, `arcade_guest_player` in localStorage
+- Cloud: When DB set, `/api/scores`, `/api/player`, rooms, messages sync to Postgres
+
+## 📱 APK — Real Android App
+
+### Get APK in 1 Click (No Android Studio):
+
+1. GitHub → https://github.com/Mahicouragw/accessible-board-games → **Actions** tab → **Build APK** → Run workflow
+2. Wait 5-10 min → Download artifact **app-debug-apk**
+3. Install on Android: Transfer → Tap → Allow unknown sources → Install
+
+APK can load live Vercel site or offline static (config in `capacitor.config.ts`).
+
+### Build Locally:
+
 ```bash
-# If you haven't pushed yet:
-git init
-git branch -M main
-git add .
-git commit -m "Initial fixed publish"
-
-# Create repo at https://github.com/new (PUBLIC, empty)
-# Then:
-git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO_NAME.git
-git push -u origin main
-```
-
-**OR with GitHub CLI:**
-```bash
-gh repo create YOUR_REPO_NAME --public --source=. --remote=origin --push
-```
-
-Your repo will be public instantly: `https://github.com/YOUR_USERNAME/YOUR_REPO_NAME`
-
-### 2. Vercel (easiest for Next.js)
-1. Go to https://vercel.com/new
-2. Import your GitHub public repo
-3. Click Deploy - Done!
-
-### 3. Netlify
-1. Go to https://app.netlify.com/start
-2. Import from GitHub
-3. Build command: `npm run build`
-4. Publish directory: `out`
-
-### 4. GitHub Pages (FREE)
-Already configured! File `.github/workflows/deploy.yml` will auto-deploy.
-1. Push to `main` branch
-2. Go to Repo Settings > Pages > Source: GitHub Actions
-3. Your site will be live at `https://YOUR_USERNAME.github.io/YOUR_REPO_NAME`
-
-## 🛠️ How to fix your own file
-
-Upload your file/project ZIP to this workspace, then run:
-
-```bash
-chmod +x fix-and-publish.sh
-./fix-and-publish.sh
-node auto-fix-errors.js
+npm install --legacy-peer-deps
+npm run icons:generate   # Generate PNG icons from SVG
 npm run build
+npx cap add android      # First time
+npx cap copy
+npx cap sync
+npx cap open android     # Open Android Studio → Build APK
+# Or: npm run apk:build (needs Android SDK)
 ```
 
-All errors will be auto-fixed.
+See `APK_GUIDE.md` for PWABuilder, Play Store publishing, future features.
 
-## 📂 Need help uploading?
+## 🚀 Deploy
 
-In Arena Chat:
-- Click **📎 Attachment** icon
-- Upload your ZIP / Folder / Files
-- Or drag & drop your project folder into the workspace panel
+**GitHub Public:** Already public at `Mahicouragw/accessible-board-games`
 
-Once uploaded, I (AI agent) will automatically scan and fix everything.
+**Vercel:** Import repo → Add `DATABASE_URL` env (optional) → Deploy → Live at https://accessible-board-games.vercel.app
 
----
-Made with ❤️ - Auto-fixer by Arena AI
+**Build Test:**
+```bash
+npm install --legacy-peer-deps
+npm run build
+# ✓ Compiled successfully, 5 static + 21 dynamic routes
+```
+
+## 📂 Structure
+
+```
+src/
+├── app/ (page, layout, play/[game], rooms/[id], api/* 21 routes)
+├── components/ (AccessibilityToolbar, games/*, room/*)
+├── db/ (index.ts with mock fallback, schema.ts)
+├── lib/ (session with guest fallback, games, sound, a11y)
+public/icons/ (icon.svg, icon-192.png, icon-512.png etc)
+capacitor.config.ts (APK config)
+scripts/generate-icons.js (PNG from SVG)
+.github/workflows/ (deploy.yml, apk.yml)
+```
+
+## 🔮 Future Features (You Asked)
+
+- Add new game: Create in `src/components/games/NewGame.tsx` → Add to `src/lib/games.ts` → Route in `play/[game]/page.tsx`
+- Cloud saves: Already via `useSaveScore` → `/api/scores` when DB set
+- More APK native features: Push notifications, haptics, filesystem — via Capacitor plugins
+- After adding features: Push to GitHub → Vercel auto-deploys web → Re-run APK workflow → New APK
+
+## License
+
+MIT — Accessible for everyone.

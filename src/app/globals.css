@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0f172a;
+  --bg-card: #1e293b;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --primary: #7c3aed;
+  --border: #334155;
+  --focus: #f59e0b;
+  --success: #22c55e;
+}
+
+[data-theme="high-contrast"] {
+  --bg: #000000;
+  --bg-card: #000000;
+  --text: #ffffff;
+  --text-muted: #ffff00;
+  --primary: #ffff00;
+  --border: #ffffff;
+  --focus: #00ffff;
+  --success: #00ff00;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  font-size: var(--font-size, 16px);
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 16px;
+  background: var(--primary);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 12px;
+  z-index: 10000;
+  text-decoration: none;
+  font-weight: bold;
+}
+.skip-link:focus { top: 16px; }
+
+@keyframes pieceIn {
+  0% { transform: scale(0.5); opacity: 0.4; }
+  60% { transform: scale(1.15); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pieceIn { animation: pieceIn 0.25s ease-out; }
+
+@keyframes diceRoll {
+  0% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(90deg) scale(1.2); }
+  50% { transform: rotate(200deg) scale(0.9); }
+  75% { transform: rotate(320deg) scale(1.15); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+.animate-diceRoll { animation: diceRoll 0.6s ease-in-out; }
+
+@keyframes tokenPop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+.animate-tokenPop { animation: tokenPop 0.3s ease-out; }
+
+/* Accessibility toolbar */
+.a11y-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.a11y-toolbar button {
+  padding: 6px 12px;
+  border: 2px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.a11y-toolbar button:hover,
+.a11y-toolbar button[aria-pressed="true"] {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+[data-theme="high-contrast"] .a11y-toolbar button[aria-pressed="true"] {
+  background: #ffff00;
+  color: black;
+}
