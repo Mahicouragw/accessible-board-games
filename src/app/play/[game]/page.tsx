@@ -16,6 +16,7 @@ import SnakeLadder from "@/components/games/SnakeLadder";
 import SnakeLadderWithPhone from "@/components/games/SnakeLadderWithPhone";
 import Carrom from "@/components/games/Carrom";
 import CarromWithPhone from "@/components/games/CarromWithPhone";
+import Cricket from "@/components/games/Cricket";
 import Leaderboard from "@/components/Leaderboard";
 
 export default function PlayPage({ params }: { params: { game: string } }) {
@@ -110,6 +111,7 @@ function PlayPageInner({ params }: { params: { game: string } }) {
           {game === "ludo" && <LudoWithPhone />}
           {game === "snake-ladder" && <SnakeLadderWithPhone />}
           {game === "carrom" && <CarromWithPhone />}
+          {game === "cricket" && <Cricket />}
         </div>
         <aside className="space-y-4">
           {!info.online && <Leaderboard game={game} label={info.scoreLabel} />}

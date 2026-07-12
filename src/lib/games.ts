@@ -8,7 +8,8 @@ export type GameId =
   | "ludo"
   | "snake-ladder"
   | "carrom"
-  | "chess";
+  | "chess"
+  | "cricket";
 
 export type GameInfo = {
   id: GameId;
@@ -110,6 +111,15 @@ export const GAMES: GameInfo[] = [
     color: "from-slate-400 to-slate-700",
     online: true,
     scoreLabel: "Wins",
+  },
+  {
+    id: "cricket",
+    name: "Cricket",
+    emoji: "🏏",
+    tagline: "Team vs Team! 3,4,5,11 players, 5-50 overs, score 345 vs 45, 50/3. Player vs Computer!",
+    color: "from-emerald-600 to-green-700",
+    online: false,
+    scoreLabel: "Highest Score",
   },
 ];
 
