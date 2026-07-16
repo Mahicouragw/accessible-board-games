@@ -9,7 +9,14 @@ export type GameId =
   | "snake-ladder"
   | "carrom"
   | "chess"
-  | "cricket";
+  | "cricket"
+  | "checkers"
+  | "dominoes"
+  | "sudoku"
+  | "minesweeper"
+  | "football-penalty"
+  | "tetris"
+  | "basketball";
 
 export type GameInfo = {
   id: GameId;
@@ -26,7 +33,7 @@ export const GAMES: GameInfo[] = [
     id: "tic-tac-toe",
     name: "Tic-Tac-Toe",
     emoji: "⭕",
-    tagline: "Classic 3-in-a-row. Play online or vs AI.",
+    tagline: "Classic 3-in-a-row. Play online or vs AI. Enhanced: 4x4, 5x5 variants, advanced AI",
     color: "from-sky-500 to-indigo-600",
     online: true,
     scoreLabel: "Wins",
@@ -35,7 +42,7 @@ export const GAMES: GameInfo[] = [
     id: "connect-four",
     name: "Connect Four",
     emoji: "🔴",
-    tagline: "Drop discs, connect four to win.",
+    tagline: "Drop discs, connect four to win. Enhanced: Power-ups, 3D mode, advanced",
     color: "from-rose-500 to-pink-600",
     online: true,
     scoreLabel: "Wins",
@@ -44,7 +51,7 @@ export const GAMES: GameInfo[] = [
     id: "rock-paper-scissors",
     name: "Rock Paper Scissors",
     emoji: "✊",
-    tagline: "Best of luck vs the AI.",
+    tagline: "Best of luck vs the AI. Enhanced: Lizard Spock variant, best of 5",
     color: "from-amber-500 to-orange-600",
     online: false,
     scoreLabel: "Best streak",
@@ -53,7 +60,7 @@ export const GAMES: GameInfo[] = [
     id: "memory",
     name: "Memory Match",
     emoji: "🧠",
-    tagline: "Flip and match all the pairs.",
+    tagline: "Flip and match all the pairs. Enhanced: 6x6, themes, timer, advanced",
     color: "from-emerald-500 to-teal-600",
     online: false,
     scoreLabel: "Best score",
@@ -62,7 +69,7 @@ export const GAMES: GameInfo[] = [
     id: "2048",
     name: "2048",
     emoji: "🔢",
-    tagline: "Merge tiles to reach 2048.",
+    tagline: "Merge tiles to reach 2048. Enhanced: 5x5, 6x6, undo, advanced",
     color: "from-violet-500 to-purple-600",
     online: false,
     scoreLabel: "High score",
@@ -71,7 +78,7 @@ export const GAMES: GameInfo[] = [
     id: "snake",
     name: "Snake",
     emoji: "🐍",
-    tagline: "Eat, grow, don't crash.",
+    tagline: "Eat, grow, don't crash. Enhanced: Obstacles, levels, power-ups, advanced",
     color: "from-lime-500 to-green-600",
     online: false,
     scoreLabel: "High score",
@@ -80,7 +87,7 @@ export const GAMES: GameInfo[] = [
     id: "ludo",
     name: "Ludo",
     emoji: "🎲",
-    tagline: "Classic 4-player Ludo vs AI. Roll & race home!",
+    tagline: "Classic 4-player Ludo vs AI. Enhanced: 4 phones, 4 colours, invite, match request, realistic sounds",
     color: "from-red-500 to-yellow-500",
     online: false,
     scoreLabel: "Wins",
@@ -89,7 +96,7 @@ export const GAMES: GameInfo[] = [
     id: "snake-ladder",
     name: "Snake & Ladder",
     emoji: "🪜",
-    tagline: "Climb ladders, dodge snakes to reach 100.",
+    tagline: "Climb ladders, dodge snakes. Enhanced: 4 phones, colours, invite, 3D board",
     color: "from-green-500 to-emerald-600",
     online: false,
     scoreLabel: "Wins",
@@ -98,7 +105,7 @@ export const GAMES: GameInfo[] = [
     id: "carrom",
     name: "Carrom",
     emoji: "⚫",
-    tagline: "Flick the striker and pot the coins vs AI.",
+    tagline: "Flick the striker and pot the coins vs AI. Enhanced: 4-player, phone invite, realistic physics",
     color: "from-amber-600 to-yellow-700",
     online: false,
     scoreLabel: "Best pot",
@@ -107,7 +114,7 @@ export const GAMES: GameInfo[] = [
     id: "chess",
     name: "Chess",
     emoji: "♟️",
-    tagline: "Full rules chess. Play online or vs AI.",
+    tagline: "Full rules chess. Enhanced: Hints, undo, 3 difficulty levels, advanced",
     color: "from-slate-400 to-slate-700",
     online: true,
     scoreLabel: "Wins",
@@ -120,6 +127,69 @@ export const GAMES: GameInfo[] = [
     color: "from-emerald-600 to-green-700",
     online: false,
     scoreLabel: "Highest Score",
+  },
+  {
+    id: "checkers",
+    name: "Checkers",
+    emoji: "♟️",
+    tagline: "Classic Draughts - Advanced: Forced captures, king crown, realistic wood sounds",
+    color: "from-amber-700 to-red-700",
+    online: false,
+    scoreLabel: "Wins",
+  },
+  {
+    id: "dominoes",
+    name: "Dominoes",
+    emoji: "🀄",
+    tagline: "Double-six domino set - Advanced: 28 tiles, score tracking, realistic shuffle sound",
+    color: "from-slate-600 to-slate-800",
+    online: false,
+    scoreLabel: "Score",
+  },
+  {
+    id: "sudoku",
+    name: "Sudoku",
+    emoji: "🔢",
+    tagline: "9x9 Hard Sudoku - Advanced: Row/col highlight, error tracking, realistic number sound",
+    color: "from-violet-600 to-indigo-700",
+    online: false,
+    scoreLabel: "Wins",
+  },
+  {
+    id: "minesweeper",
+    name: "Minesweeper",
+    emoji: "💣",
+    tagline: "10x10, 15 mines - Advanced: Flood reveal, flag, realistic click sounds",
+    color: "from-amber-600 to-orange-700",
+    online: false,
+    scoreLabel: "Wins",
+  },
+  {
+    id: "football-penalty",
+    name: "Football Penalty",
+    emoji: "⚽",
+    tagline: "Penalty shootout - Advanced: Power + Angle, keeper AI, crowd cheer sounds, team vs team",
+    color: "from-emerald-600 to-green-800",
+    online: false,
+    scoreLabel: "Goals",
+  },
+  {
+    id: "tetris",
+    name: "Tetris",
+    emoji: "🧱",
+    tagline: "Stack and clear lines - Advanced: 7 tetrominoes, line clear, level-up sound",
+    color: "from-violet-600 to-purple-700",
+    online: false,
+    scoreLabel: "High Score",
+  },
+  {
+    id: "basketball",
+    name: "Basketball Shoot",
+    emoji: "🏀",
+    tagline: "Power + Angle shooting - Advanced: Realistic bounce sound, streak, team vs team 3-4-5 players",
+    color: "from-orange-500 to-red-600",
+    online: false,
+    scoreLabel: "Goals",
   },
 ];
 

@@ -17,6 +17,13 @@ import SnakeLadderWithPhone from "@/components/games/SnakeLadderWithPhone";
 import Carrom from "@/components/games/Carrom";
 import CarromWithPhone from "@/components/games/CarromWithPhone";
 import Cricket from "@/components/games/Cricket";
+import Checkers from "@/components/games/Checkers";
+import Dominoes from "@/components/games/Dominoes";
+import Sudoku from "@/components/games/Sudoku";
+import Minesweeper from "@/components/games/Minesweeper";
+import FootballPenalty from "@/components/games/FootballPenalty";
+import Tetris from "@/components/games/Tetris";
+import Basketball from "@/components/games/Basketball";
 import Leaderboard from "@/components/Leaderboard";
 
 export default function PlayPage({ params }: { params: { game: string } }) {
@@ -112,6 +119,13 @@ function PlayPageInner({ params }: { params: { game: string } }) {
           {game === "snake-ladder" && <SnakeLadderWithPhone />}
           {game === "carrom" && <CarromWithPhone />}
           {game === "cricket" && <Cricket />}
+          {game === "checkers" && <Checkers />}
+          {game === "dominoes" && <Dominoes />}
+          {game === "sudoku" && <Sudoku />}
+          {game === "minesweeper" && <Minesweeper />}
+          {game === "football-penalty" && <FootballPenalty />}
+          {game === "tetris" && <Tetris />}
+          {game === "basketball" && <Basketball />}
         </div>
         <aside className="space-y-4">
           {!info.online && <Leaderboard game={game} label={info.scoreLabel} />}
