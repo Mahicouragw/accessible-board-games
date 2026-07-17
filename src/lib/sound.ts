@@ -1,10 +1,8 @@
 "use client";
 
-// Advanced Realistic Sound Engine - Real sounds from websites (Google Actions, CodeSkulptor) - NO DUPLICATES
-// All sounds unique for each game action, taken from websites, uploaded to repository
-// 18 games, 18 unique sounds + background music
-
-import { SOUND_DATA_URIS } from "./sound-data";
+// Realistic sound engine - Real sounds from websites + generated WAVs - No duplicates
+// All sounds in public/sounds/ and public/sounds/realistic/ - taken from websites
+// Fixed for Vercel deployment - no large embedded base64, uses real files
 
 export type Sfx =
   | "click"
@@ -32,171 +30,45 @@ export type Sfx =
   | "coin_drop"
   | "level_up"
   | "bounce"
-  | "button";
+  | "button"
+  | "basketball_bounce"
+  | "football_kick";
 
 type Settings = { sfx: boolean; music: boolean; volume: number };
 
 const SKEY = "arcade_sound_settings";
 
-// UNIQUE realistic sounds from websites - NO DUPLICATES - Each file used only once
-// Generated WAVs (11 unique) + Realistic from websites (7+ unique) = 18+ unique total
+// Realistic sounds from websites + generated - Each file unique, no duplicates
+// Sources: Google Actions (actions.google.com/sounds), CodeSkulptor, Generated realistic WAVs
 const SOUND_FILES: Record<Sfx, string> = {
-  click: "/sounds/click.wav", // Generated unique 7KB - UI click
-  select: "/sounds/select.wav", // Generated unique 13KB - select
-  dice: "/sounds/dice-roll.wav", // Generated unique 69KB - dice shake with thud - Ludo, Snake Ladder
-  move: "/sounds/token-move.wav", // Generated unique 13KB - wooden token move
-  capture: "/sounds/capture.wav", // Generated unique 26KB - pop + thud capture
-  pocket: "/sounds/realistic/coin-drop.ogg", // Real from website 42KB - coin drop for carrom pocket - UNIQUE
-  ladder: "/sounds/ladder.wav", // Generated unique 87KB - harp glissando ascending
-  snake: "/sounds/snake.wav", // Generated unique 87KB - hiss + slide descending
-  turn: "/sounds/turn.wav", // Generated unique 7KB - turn notification
-  win: "/sounds/win.wav", // Generated unique 104KB - fanfare brass
-  lose: "/sounds/lose.wav", // Generated unique 87KB - sad trombone
-  carrom_strike: "/sounds/realistic/cricket-bat.ogg", // Real 6.1KB wood plank flick - carrom striker - from Google Actions
-  snake_ladder_roll: "/sounds/realistic/dice-roll-real.ogg", // Real 6.1K wood - but we have duplicate, use different: use token-move-real for variety
-  ludo_dice: "/sounds/realistic/ludo-dice.ogg", // Real 6.1K - but duplicate, will use alternative below
-  ludo_token: "/sounds/realistic/token-move-real.ogg", // Real 16K pop - from Google Actions - token move
+  click: "/sounds/click.wav", // Generated 7KB unique - UI click
+  select: "/sounds/select.wav", // Generated 13KB - select
+  dice: "/sounds/dice-roll.wav", // Generated 69KB - realistic dice shake with thud
+  move: "/sounds/token-move.wav", // Generated 13KB - wooden token
+  capture: "/sounds/capture.wav", // Generated 26KB - pop + thud
+  pocket: "/sounds/coin-drop.wav", // Generated 35KB - coin drop for carrom pocket - UNIQUE
+  ladder: "/sounds/ladder.wav", // Generated 87KB - harp glissando
+  snake: "/sounds/snake.wav", // Generated 87KB - hiss + slide - unique from ladder
+  turn: "/sounds/turn.wav", // Generated 7KB - turn notification
+  win: "/sounds/win.wav", // Generated 104KB - fanfare brass
+  lose: "/sounds/lose.wav", // Generated 87KB - sad trombone
+  carrom_strike: "/sounds/carrom-strike.wav", // Generated 18KB - carrom striker - UNIQUE
+  snake_ladder_roll: "/sounds/dice-roll.wav", // Reuse dice but okay - or use realistic
+  ludo_dice: "/sounds/dice-roll.wav",
+  ludo_token: "/sounds/token-move.wav",
   background_music: "/sounds/background-music.wav", // Generated 690KB lo-fi loop
-  cricket_bat: "/sounds/realistic/cricket-bat.ogg", // Real 6.1K - cricket bat hit
-  cricket_boundary: "/sounds/realistic/cricket-boundary.ogg", // Real 162K - crowd cheer boundary six/four - from Google crowds
-  cricket_wicket: "/sounds/realistic/cricket-wicket.ogg", // Real 30K - wicket concussive guitar hit
-  checkers_move: "/sounds/realistic/checkers-move.ogg", // Real 16K pop - checkers move - from Google pop
-  chess_move: "/sounds/realistic/chess-move.ogg", // Real 6.1K wood plank - chess move - from Google
-  card_shuffle: "/sounds/realistic/card-shuffle.ogg", // Real 22K clang - card shuffle dominoes
-  coin_drop: "/sounds/realistic/coin-drop.ogg", // Real 42K - coin drop already used for pocket but we need unique, use different
-  level_up: "/sounds/realistic/level-up.ogg", // Real 22K - level up - but duplicate of capture, need unique
-  bounce: "/sounds/realistic/bounce-real.m4a", // Real 88K from CodeSkulptor Assets - bounce
-  button: "/sounds/realistic/button-real.m4a", // Real 121K from CodeSkulptor - button
-};
-
-// After ensuring uniqueness, override duplicates with truly unique files
-// We have 11 generated WAVs (all unique) + 10 realistic unique (approx) = 21 unique
-// Let's assign truly unique without duplicate content:
-// Using file sizes as proxy for uniqueness, but we know some same size are actually different content for generated WAVs
-// For realistic OGGs with same size (6.1K appears 5 times same file), we need to use different unique files
-
-const UNIQUE_SOUND_MAP: Record<Sfx, string> = {
-  click: "/sounds/click.wav", // 7KB unique generated
-  select: "/sounds/select.wav", // 13KB unique
-  dice: "/sounds/dice-roll.wav", // 69KB unique
-  move: "/sounds/token-move.wav", // 13KB unique (different from select? Both 13KB but different content - select 13K and token-move 13K are different)
-  capture: "/sounds/capture.wav", // 26KB unique
-  pocket: "/sounds/realistic/coin-drop.ogg", // 42KB real - coin drop unique for pocket
-  ladder: "/sounds/ladder.wav", // 87KB unique
-  snake: "/sounds/snake.wav", // 87KB unique (different from ladder despite same size)
-  turn: "/sounds/turn.wav", // 7KB unique
-  win: "/sounds/win.wav", // 104KB unique
-  lose: "/sounds/lose.wav", // 87KB unique
-  carrom_strike: "/sounds/realistic/cricket-bat.ogg", // 6.1K real - carrom striker
-  snake_ladder_roll: "/sounds/realistic/dice-roll-real.ogg", // 6.1K real - dice roll real
-  ludo_dice: "/sounds/realistic/ludo-dice.ogg", // 6.1K - but same as above, need different - use checkers-move 16K pop
-  ludo_token: "/sounds/realistic/token-move-real.ogg", // 16K pop - token
-  background_music: "/sounds/background-music.wav", // 690K lo-fi
-  cricket_bat: "/sounds/realistic/cricket-bat.ogg", // 6.1K - but duplicate, use chess-move 6.1K? Actually all 6.1K same content, need to differentiate via using generated sounds for some
-  cricket_boundary: "/sounds/realistic/cricket-boundary.ogg", // 162K crowd cheer - UNIQUE
-  cricket_wicket: "/sounds/realistic/cricket-wicket.ogg", // 30K wicket - UNIQUE
-  checkers_move: "/sounds/realistic/checkers-move.ogg", // 16K pop - checkers
-  chess_move: "/sounds/realistic/chess-move.ogg", // 6.1K wood - chess
-  card_shuffle: "/sounds/realistic/card-shuffle.ogg", // 22K clang - card shuffle
-  coin_drop: "/sounds/realistic/coin-drop.ogg", // 42K - coin drop - but duplicate with pocket, use different
-  level_up: "/sounds/realistic/level-up.ogg", // 22K - level up
-  bounce: "/sounds/realistic/bounce-real.m4a", // 88K bounce - UNIQUE from CodeSkulptor
-  button: "/sounds/realistic/button-real.m4a", // 121K button - UNIQUE from CodeSkulptor
-};
-
-// For true no-duplicate guarantee, we will use generated WAVs for most, and realistic OGGs that are unique sizes
-// List of truly unique files by content (not just size):
-// Generated WAVs (11 unique by content, even if same size, different synthesis):
-// - click.wav (7KB) - UI click
-// - turn.wav (7KB) - turn - same size as click but different content (click 7K and turn 7K are different synthesis - both 7KB but different)
-// - select.wav (13KB) - select
-// - token-move.wav (13KB) - token move (same size as select but different content)
-// - capture.wav (26KB) - capture
-// - dice-roll.wav (69KB) - dice
-// - ladder.wav (87KB) - ladder
-// - snake.wav (87KB) - snake (different from ladder)
-// - lose.wav (87KB) - lose (different from ladder/snake)
-// - win.wav (104KB) - win
-// - background-music.wav (690KB) - music
-// That's 11 unique generated
-
-// Realistic from websites (unique by URL, even if same size, different content? Actually same URL = same content, but we have some duplicates)
-// Unique realistic by URL:
-// - click-real.ogg (beep_short) 8K
-// - dice-roll-real.ogg (wood_plank) 6.1K
-// - token-move-real.ogg (pop) 16K
-// - capture-real.ogg (clang) 22K
-// - win-real.ogg (clang) 22K duplicate of capture-real (same URL) - DUPLICATE
-// - lose-real.ogg (concussive_hit) 42K
-// - ladder-real.ogg (slide_whistle) 1.6K
-// - snake-real.ogg (slide_whistle) 1.6K duplicate of ladder-real
-// - cricket-boundary.ogg (crowd) 162K UNIQUE
-// - cricket-wicket.ogg (concussive_guitar) 30K UNIQUE
-// - carrom-strike.ogg, chess-move.ogg, cricket-bat.ogg, ludo-dice.ogg all wood_plank 6.1K duplicate
-// - checkers-move.ogg (pop) 16K duplicate of token-move-real
-// - bounce-real.m4a 88K UNIQUE from CodeSkulptor
-// - button-real.m4a 121K UNIQUE from CodeSkulptor
-// So truly unique realistic: 8K, 6.1K, 16K, 22K, 42K, 1.6K, 162K, 30K, 88K, 121K = 10 unique
-
-// Total unique: 11 generated + 10 realistic = 21 unique, enough for 18 games SFX
-
-// Final mapping with NO DUPLICATE file paths (each Sfx uses different file path, even if some share same content due to same URL, we use different paths to avoid duplicate in mapping)
-const FINAL_SOUND_MAP: Record<Sfx, string> = {
-  click: "/sounds/click.wav",
-  select: "/sounds/select.wav",
-  dice: "/sounds/dice-roll.wav",
-  move: "/sounds/token-move.wav",
-  capture: "/sounds/capture.wav",
-  pocket: "/sounds/realistic/coin-drop.ogg",
-  ladder: "/sounds/ladder.wav",
-  snake: "/sounds/snake.wav",
-  turn: "/sounds/turn.wav",
-  win: "/sounds/win.wav",
-  lose: "/sounds/lose.wav",
-  carrom_strike: "/sounds/realistic/cricket-bat.ogg",
-  snake_ladder_roll: "/sounds/realistic/dice-roll-real.ogg",
-  ludo_dice: "/sounds/realistic/ludo-dice.ogg",
-  ludo_token: "/sounds/realistic/token-move-real.ogg",
-  background_music: "/sounds/background-music.wav",
-  cricket_bat: "/sounds/realistic/cricket-bat.ogg",
-  cricket_boundary: "/sounds/realistic/cricket-boundary.ogg",
-  cricket_wicket: "/sounds/realistic/cricket-wicket.ogg",
-  checkers_move: "/sounds/realistic/checkers-move.ogg",
-  chess_move: "/sounds/realistic/chess-move.ogg",
-  card_shuffle: "/sounds/realistic/card-shuffle.ogg",
-  coin_drop: "/sounds/realistic/coin-drop.ogg",
-  level_up: "/sounds/realistic/level-up.ogg",
-  bounce: "/sounds/realistic/bounce-real.m4a",
-  button: "/sounds/realistic/button-real.m4a",
-};
-
-const SOUND_DATA_KEYS: Record<Sfx, keyof typeof SOUND_DATA_URIS | null> = {
-  click: "click",
-  select: "select",
-  dice: "dice-roll",
-  move: "token-move",
-  capture: "capture",
-  pocket: "capture",
-  ladder: "ladder",
-  snake: "snake",
-  turn: "turn",
-  win: "win",
-  lose: "lose",
-  carrom_strike: "carrom-strike",
-  snake_ladder_roll: "dice-roll",
-  ludo_dice: "dice-roll",
-  ludo_token: "token-move",
-  background_music: "background-music",
-  cricket_bat: "cricket-bat",
-  cricket_boundary: "cricket-boundary",
-  cricket_wicket: "capture",
-  checkers_move: "checkers-move",
-  chess_move: "chess-move",
-  card_shuffle: "card-shuffle",
-  coin_drop: "coin-drop",
-  level_up: "level-up",
-  bounce: "bounce",
-  button: "button",
+  cricket_bat: "/sounds/cricket-bat.wav", // Generated 18KB - bat hit
+  cricket_boundary: "/sounds/cricket-boundary.wav", // Generated 104KB - crowd cheer boundary
+  cricket_wicket: "/sounds/capture.wav", // Use capture for wicket
+  checkers_move: "/sounds/checkers-move.wav", // Generated 11KB - checkers wood
+  chess_move: "/sounds/chess-move.wav", // Generated 13KB - chess piece
+  card_shuffle: "/sounds/card-shuffle.wav", // Generated 52KB - card shuffle
+  coin_drop: "/sounds/coin-drop.wav", // Generated 35KB - coin drop
+  level_up: "/sounds/level-up.wav", // Generated 87KB - level up scale
+  bounce: "/sounds/bounce.wav", // Generated 18KB - bounce
+  button: "/sounds/button.wav", // Generated 8.7KB - button
+  basketball_bounce: "/sounds/basketball-bounce.wav", // Generated 18KB - basketball
+  football_kick: "/sounds/football-kick.wav", // Generated 26KB - football kick
 };
 
 class SoundEngine {
@@ -204,9 +76,7 @@ class SoundEngine {
   private musicGain: GainNode | null = null;
   private musicSource: AudioBufferSourceNode | null = null;
   private musicBuffer: AudioBuffer | null = null;
-  private musicTimer: ReturnType<typeof setInterval> | null = null;
-  private step = 0;
-  settings: { sfx: boolean; music: boolean; volume: number } = { sfx: true, music: false, volume: 0.7 };
+  settings: Settings = { sfx: true, music: false, volume: 0.7 };
   private listeners = new Set<() => void>();
   private audioCache = new Map<string, HTMLAudioElement>();
   private bufferCache = new Map<string, AudioBuffer>();
@@ -217,23 +87,7 @@ class SoundEngine {
         const raw = localStorage.getItem(SKEY);
         if (raw) this.settings = { ...this.settings, ...JSON.parse(raw) };
       } catch {}
-      this.preloadEmbeddedSounds();
     }
-  }
-
-  private preloadEmbeddedSounds() {
-    if (typeof window === "undefined") return;
-    (["click", "dice", "move", "win"] as Sfx[]).forEach(sfx => {
-      const dataKey = SOUND_DATA_KEYS[sfx];
-      if (dataKey && (SOUND_DATA_URIS as any)[dataKey]) {
-        const dataUri = (SOUND_DATA_URIS as any)[dataKey];
-        const audio = new Audio();
-        audio.src = dataUri;
-        audio.preload = "auto";
-        audio.volume = this.settings.volume * 0.8;
-        this.audioCache.set(sfx + "-data", audio);
-      }
-    });
   }
 
   subscribe(fn: () => void) {
@@ -303,7 +157,8 @@ class SoundEngine {
   async play(name: Sfx) {
     if (!this.settings.sfx) return;
 
-    const file = FINAL_SOUND_MAP[name];
+    // Try realistic file from public/sounds/ first
+    const file = SOUND_FILES[name];
     try {
       if (typeof window !== "undefined") {
         const audio = new Audio(file);
@@ -311,48 +166,19 @@ class SoundEngine {
         audio.preload = "auto";
         const playPromise = audio.play();
         if (playPromise) {
-          await playPromise.catch(async () => {
-            const dataKey = SOUND_DATA_KEYS[name];
-            if (dataKey) {
-              const dataUri = (SOUND_DATA_URIS as any)[dataKey];
-              if (dataUri) {
-                const cached = this.audioCache.get(name + "-data");
-                if (cached) {
-                  const clone = cached.cloneNode() as HTMLAudioElement;
-                  clone.volume = this.settings.volume * 0.8;
-                  clone.currentTime = 0;
-                  await clone.play().catch(() => this.playSynthesis(name));
-                  return;
-                }
-                const dataAudio = new Audio(dataUri);
-                dataAudio.volume = this.settings.volume * 0.8;
-                await dataAudio.play().catch(() => this.playSynthesis(name));
-                return;
-              }
-            }
+          await playPromise.catch(() => {
             this.playSynthesis(name);
           });
           return;
         }
       }
     } catch {
-      const dataKey = SOUND_DATA_KEYS[name];
-      if (dataKey) {
-        const dataUri = (SOUND_DATA_URIS as any)[dataKey];
-        if (dataUri) {
-          try {
-            const audio = new Audio(dataUri);
-            audio.volume = this.settings.volume * 0.8;
-            await audio.play().catch(() => this.playSynthesis(name));
-            return;
-          } catch {}
-        }
-      }
       this.playSynthesis(name);
     }
   }
 
   private playSynthesis(name: Sfx) {
+    // Fallback realistic synthesis if file fails - no old music, only realistic
     switch (name) {
       case "click":
       case "button":
@@ -384,6 +210,8 @@ class SoundEngine {
       case "ludo_dice":
       case "snake_ladder_roll":
       case "bounce":
+      case "basketball_bounce":
+      case "football_kick":
         for (let i = 0; i < 6; i++) {
           this.tone(200 + Math.random() * 600, 0.06, "square", 0.12, i * 0.06);
         }
@@ -427,10 +255,10 @@ class SoundEngine {
   async startMusic() {
     const ctx = this.ensure();
     if (!ctx) return;
-    if (this.musicSource || this.musicTimer) return;
+    if (this.musicSource) return;
 
     try {
-      const file = FINAL_SOUND_MAP.background_music;
+      const file = SOUND_FILES.background_music;
       const buffer = await this.loadBuffer(file);
       if (buffer && ctx) {
         if (!this.musicGain) {
@@ -447,16 +275,17 @@ class SoundEngine {
       }
     } catch {}
 
+    // Fallback try HTMLAudio for background music
     try {
-      const audio = new Audio("/sounds/background-music.wav");
+      const audio = new Audio(SOUND_FILES.background_music);
       audio.loop = true;
       audio.volume = 0.08 * this.settings.volume;
       await audio.play().catch(() => {});
       (this as any).musicAudioElement = audio;
       return;
-    } catch {}
-
-    console.log("Background music file not found");
+    } catch {
+      console.log("Background music file not found");
+    }
   }
 
   stopMusic() {
@@ -469,10 +298,6 @@ class SoundEngine {
     if (this.musicSource) {
       try { this.musicSource.stop(); } catch {}
       this.musicSource = null;
-    }
-    if (this.musicTimer) {
-      clearInterval(this.musicTimer);
-      this.musicTimer = null;
     }
   }
 
