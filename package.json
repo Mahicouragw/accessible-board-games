@@ -21,7 +21,18 @@
     "cap:open": "npx cap open android",
     "apk:build": "npm run build && npx cap copy && cd android && ./gradlew assembleDebug && echo APK at android/app/build/outputs/apk/debug/app-debug.apk"
   },
-  "keywords": ["accessible", "board-games", "a11y", "ludo", "carrom", "chess", "multiplayer", "inclusive", "apk", "pwa"],
+  "keywords": [
+    "accessible",
+    "board-games",
+    "a11y",
+    "ludo",
+    "carrom",
+    "chess",
+    "multiplayer",
+    "inclusive",
+    "apk",
+    "pwa"
+  ],
   "author": "Accessible Board Games",
   "license": "MIT",
   "engines": {
@@ -54,5 +65,12 @@
     "sharp": "^0.33.4",
     "tailwindcss": "3.4.1",
     "typescript": "5.4.5"
+  },
+  "overrides": {
+    "glob": "^11.0.0",
+    "rimraf": "^5.0.10"
+  },
+  "resolutions": {
+    "glob": "^11.0.0"
   }
 }
