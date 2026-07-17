@@ -157,24 +157,32 @@ class SoundEngine {
   async play(name: Sfx) {
     if (!this.settings.sfx) return;
 
-    // Try realistic file from public/sounds/ first
+    // Try realistic file from public/sounds/ first, then API route fallback for Vercel (when public/sounds 404)
     const file = SOUND_FILES[name];
-    try {
-      if (typeof window !== "undefined") {
-        const audio = new Audio(file);
-        audio.volume = this.settings.volume * 0.8;
-        audio.preload = "auto";
-        const playPromise = audio.play();
-        if (playPromise) {
-          await playPromise.catch(() => {
-            this.playSynthesis(name);
-          });
-          return;
+    const apiFile = `/api/sounds/${file.split('/').pop()}`;
+    
+    const tryUrls = [file, apiFile, file.replace('/sounds/', '/sounds/realistic/'), apiFile.replace('/api/sounds/', '/api/sounds/realistic/')];
+    
+    for (const url of tryUrls) {
+      try {
+        if (typeof window !== "undefined") {
+          const audio = new Audio(url);
+          audio.volume = this.settings.volume * 0.8;
+          audio.preload = "auto";
+          const playPromise = audio.play();
+          if (playPromise) {
+            await playPromise;
+            return; // Success!
+          }
         }
+      } catch {
+        // Try next URL
+        continue;
       }
-    } catch {
-      this.playSynthesis(name);
     }
+    
+    // Fallback synthesis
+    this.playSynthesis(name);
   }
 
   private playSynthesis(name: Sfx) {
