@@ -146,7 +146,7 @@ export default function LudoWithPhone() {
       )}
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-2">
-        <Ludo />
+        <Ludo humanColors={fourPlayers.length > 0 ? fourPlayers.filter(p => p.type === "human").map(p => p.color as any) : phonePlayers.length > 0 ? phonePlayers.map(p => p.color as any) : ["red"]} />
       </div>
 
       <div className="rounded-xl bg-slate-800/50 border border-slate-700 p-3">
