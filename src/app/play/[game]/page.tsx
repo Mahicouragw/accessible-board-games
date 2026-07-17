@@ -57,21 +57,19 @@ function PlayPageInner({ params }: { params: { game: string } }) {
     );
   }
 
-  if (!player) {
-    return (
-      <div className="grid min-h-screen place-items-center px-4 text-center">
-        <div>
-          <p className="text-slate-400">You need to log in to play.</p>
-          <button
-            onClick={() => router.push("/")}
-            className="mt-4 rounded-xl bg-sky-500 px-6 py-3 font-bold text-slate-950"
-          >
-            Go to Login
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Allow guest play without login for Snake and Ladder, Ludo, etc.
+  // If no player, create temporary guest for single-player modes
+  const effectivePlayer = player || {
+    id: 999,
+    name: "Guest",
+    code: "GUEST",
+    avatar: "🎮",
+    wins: 0,
+    losses: 0,
+    draws: 0,
+    totalGames: 0,
+    xp: 0,
+  };
 
   if (!info) {
     return (
@@ -99,7 +97,7 @@ function PlayPageInner({ params }: { params: { game: string } }) {
           <span className="text-2xl">{info.emoji}</span>
           {info.name}
         </h1>
-        <span className="font-mono text-xs text-emerald-400">ID: {player?.code ?? "GUEST"}</span>
+        <span className="font-mono text-xs text-emerald-400">ID: {effectivePlayer.code}</span>
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
@@ -132,11 +130,16 @@ function PlayPageInner({ params }: { params: { game: string } }) {
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
             <h3 className="text-lg font-bold">Your Stats</h3>
             <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-              <Stat label="Wins" value={player?.wins ?? 0} />
-              <Stat label="Losses" value={player?.losses ?? 0} />
-              <Stat label="Draws" value={player?.draws ?? 0} />
-              <Stat label="XP" value={player?.xp ?? 0} />
+              <Stat label="Wins" value={effectivePlayer.wins} />
+              <Stat label="Losses" value={effectivePlayer.losses} />
+              <Stat label="Draws" value={effectivePlayer.draws} />
+              <Stat label="XP" value={effectivePlayer.xp} />
             </div>
+            {!player && (
+              <div className="mt-3 text-[11px] text-amber-400 border border-amber-500/30 bg-amber-500/10 rounded-lg p-2">
+                Playing as Guest — <Link href="/" className="underline text-sky-400">Login to save progress</Link> — All games work, AI or online players, spectator mode, realistic sounds!
+              </div>
+            )}
           </div>
         </aside>
       </div>
