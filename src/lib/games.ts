@@ -16,7 +16,8 @@ export type GameId =
   | "minesweeper"
   | "football-penalty"
   | "tetris"
-  | "basketball";
+  | "basketball"
+  | "monster-battle";
 
 export type GameInfo = {
   id: GameId;
@@ -190,6 +191,15 @@ export const GAMES: GameInfo[] = [
     color: "from-orange-500 to-red-600",
     online: false,
     scoreLabel: "Goals",
+  },
+  {
+    id: "monster-battle",
+    name: "Monster Battle RPG",
+    emoji: "⚔️",
+    tagline: "1-6 monsters: Goblin 10 dmg hits back 10, Goblin Mage, Arch Magician! Light 30/40 dmg, MP 3+, spell fail 15%, multiple strikes!",
+    color: "from-red-600 to-orange-700",
+    online: false,
+    scoreLabel: "Wins",
   },
 ];
 

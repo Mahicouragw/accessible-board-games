@@ -24,6 +24,7 @@ import Minesweeper from "@/components/games/Minesweeper";
 import FootballPenalty from "@/components/games/FootballPenalty";
 import Tetris from "@/components/games/Tetris";
 import Basketball from "@/components/games/Basketball";
+import MonsterBattle from "@/components/games/MonsterBattle";
 import Leaderboard from "@/components/Leaderboard";
 
 export default function PlayPage({ params }: { params: { game: string } }) {
@@ -124,6 +125,7 @@ function PlayPageInner({ params }: { params: { game: string } }) {
           {game === "football-penalty" && <FootballPenalty />}
           {game === "tetris" && <Tetris />}
           {game === "basketball" && <Basketball />}
+          {game === "monster-battle" && <MonsterBattle />}
         </div>
         <aside className="space-y-4">
           {!info.online && <Leaderboard game={game} label={info.scoreLabel} />}

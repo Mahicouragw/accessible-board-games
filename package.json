@@ -36,7 +36,7 @@
   "author": "Accessible Board Games",
   "license": "MIT",
   "engines": {
-    "node": ">=18.0.0"
+    "node": "20.x"
   },
   "dependencies": {
     "@capacitor/android": "^6.1.2",
@@ -68,7 +68,8 @@
   },
   "overrides": {
     "glob": "^11.0.0",
-    "rimraf": "^5.0.10"
+    "rimraf": "^5.0.10",
+    "tar": "^7.5.16"
   },
   "resolutions": {
     "glob": "^11.0.0"
