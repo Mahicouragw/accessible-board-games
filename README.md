@@ -108,3 +108,4 @@ scripts/generate-icons.js (PNG from SVG)
 ## License
 
 MIT — Accessible for everyone.
+# Fresh deployment Fri Jul 17 16:28:22 UTC 2026
