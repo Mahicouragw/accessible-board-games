@@ -1,4 +1,6 @@
 name: Build APK
+permissions:
+  contents: write
 
 on:
   push:
