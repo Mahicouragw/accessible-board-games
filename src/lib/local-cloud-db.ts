@@ -13,6 +13,7 @@ type Player = {
   name: string;
   code: string;
   avatar: string;
+  phone?: string;
   wins: number;
   losses: number;
   draws: number;
@@ -159,7 +160,7 @@ function getGlobalDB(): LocalDB {
 }
 
 // Player operations
-export function createPlayer(name: string): Player {
+export function createPlayer(name: string, phone?: string): Player {
   const db = getGlobalDB();
   let code = genCode();
   while (db.players.has(code)) code = genCode();
@@ -177,6 +178,9 @@ export function createPlayer(name: string): Player {
     createdAt: new Date(),
     lastSeen: new Date(),
   };
+
+  const cleanPhone = (phone ?? "").trim().slice(0, 20);
+  if (cleanPhone) player.phone = cleanPhone;
 
   db.players.set(code, player);
   db.playersById.set(player.id, player);
