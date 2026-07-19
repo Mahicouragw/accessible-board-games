@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useSaveScore } from "@/lib/useSaveScore";
+import { sound } from "@/lib/sound";
+import { announce } from "@/lib/a11y";
 
 const ICONS = ["🍎", "🚀", "🎈", "🐱", "🌵", "⚽", "🎸", "🍕"];
 
@@ -33,6 +35,7 @@ export default function Memory() {
 
   function flip(idx: number) {
     if (lock || cards[idx].flipped || cards[idx].matched) return;
+    sound.play("click");
     const next = cards.map((c, i) => (i === idx ? { ...c, flipped: true } : c));
     setCards(next);
     const newPicked = [...picked, idx];
@@ -49,6 +52,8 @@ export default function Memory() {
           );
           setPicked([]);
           setLock(false);
+          sound.play("coin_drop");
+          announce(`${next[a].icon} matched!`);
         }, 500);
       } else {
         setTimeout(() => {
@@ -66,6 +71,8 @@ export default function Memory() {
     if (cards.length && cards.every((c) => c.matched) && !won) {
       setWon(true);
       const score = Math.max(10, 500 - moves * 10);
+      sound.play("win");
+      announce(`All pairs matched in ${moves} moves! You win, score ${score}. 🎉`);
       save(score, { moves });
     }
   }, [cards, won, moves, save]);

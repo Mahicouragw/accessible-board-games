@@ -156,6 +156,15 @@ class SoundEngine {
 
   async play(name: Sfx) {
     if (!this.settings.sfx) return;
+    // Rewards hook: any game that plays win/lose feeds the fair coin economy.
+    try {
+      if (name === "win" || name === "lose") {
+        const { recordOutcome } = await import("./rewards");
+        recordOutcome(name);
+      }
+    } catch {
+      /* rewards are best-effort; sound must never break */
+    }
 
     // Try realistic file from public/sounds/ first, then API route fallback for Vercel (when public/sounds 404)
     const file = SOUND_FILES[name];

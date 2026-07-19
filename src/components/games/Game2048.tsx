@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSaveScore } from "@/lib/useSaveScore";
+import { sound } from "@/lib/sound";
+import { announce } from "@/lib/a11y";
 
 type Grid = number[][];
 
@@ -121,6 +123,26 @@ export default function Game2048() {
   useEffect(() => {
     if (over && score > 0) save(score);
   }, [over, score, save]);
+
+  // Sound + screen-reader feedback: tile-merge blips and the end-of-game
+  // fanfare (win when a 2048+ tile exists, lose otherwise).
+  const prevScore = useRef(0);
+  useEffect(() => {
+    if (score > prevScore.current) {
+      sound.play("select");
+      prevScore.current = score;
+    }
+  }, [score]);
+  useEffect(() => {
+    if (!over) return;
+    const won = grid.some((row) => row.some((v) => v >= 2048));
+    sound.play(won ? "win" : "lose");
+    announce(
+      won
+        ? `You made 2048! Final score ${score}. 🎉`
+        : `No moves left — game over with score ${score}.`,
+    );
+  }, [over, grid, score]);
 
   function reset() {
     setGrid(init());

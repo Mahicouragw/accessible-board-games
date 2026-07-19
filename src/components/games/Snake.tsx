@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSaveScore } from "@/lib/useSaveScore";
+import { sound } from "@/lib/sound";
+import { announce } from "@/lib/a11y";
 
 const SIZE = 15;
 type P = { x: number; y: number };
@@ -81,6 +83,7 @@ export default function Snake() {
         const ate = head.x === food.x && head.y === food.y;
         const newSnake = [head, ...prev];
         if (ate) {
+          sound.play("coin_drop");
           setScore((s) => {
             const ns = s + 10;
             setBest((b) => Math.max(b, ns));
@@ -97,7 +100,11 @@ export default function Snake() {
   }, [running, over, food]);
 
   useEffect(() => {
-    if (over && score > 0) save(score);
+    if (over && score > 0) {
+      sound.play("lose");
+      announce(`Game over — final score ${score}. Say restart to play again.`);
+      save(score);
+    }
   }, [over, score, save]);
 
   return (

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useSaveScore } from "@/lib/useSaveScore";
+import { sound } from "@/lib/sound";
+import { announce } from "@/lib/a11y";
 
 const CHOICES = [
   { key: "rock", emoji: "✊", label: "Rock" },
@@ -30,12 +32,17 @@ export default function RockPaperScissors() {
   const [losses, setLosses] = useState(0);
 
   function play(choice: Choice) {
+    sound.play("button");
     const aiChoice = CHOICES[Math.floor(Math.random() * 3)].key;
     setYou(choice);
     setAi(aiChoice);
     if (choice === aiChoice) {
+      sound.play("turn");
+      announce(`Draw — both chose ${choice}.`);
       setResult("Draw!");
     } else if (beats(choice, aiChoice)) {
+      sound.play("win");
+      announce(`${choice} beats ${aiChoice} — you win!`);
       setResult("You win! 🎉");
       setWins((w) => w + 1);
       setStreak((s) => {
@@ -47,6 +54,8 @@ export default function RockPaperScissors() {
         return ns;
       });
     } else {
+      sound.play("lose");
+      announce(`${aiChoice} beats ${choice} — you lose.`);
       setResult("You lose 😔");
       setLosses((l) => l + 1);
       setStreak(0);

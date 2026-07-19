@@ -5,6 +5,7 @@ import { useSession } from "@/lib/session";
 import { GAMES } from "@/lib/games";
 import OnlinePlayers from "@/components/OnlinePlayers";
 import RoomsBrowser from "@/components/RoomsBrowser";
+import RewardsBadge from "@/components/RewardsBadge";
 
 function level(xp: number) {
   return Math.floor(xp / 100) + 1;
@@ -41,6 +42,7 @@ export default function Dashboard() {
             Log out
           </button>
         </div>
+        <RewardsBadge />
       </header>
 
       {/* Stats */}
