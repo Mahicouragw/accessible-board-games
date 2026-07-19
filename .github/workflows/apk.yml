@@ -44,6 +44,12 @@ jobs:
         env:
           DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
 
+      - name: Prepare Capacitor web shell
+        run: |
+          mkdir -p out
+          printf '%s\n' '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=https://accessible-board-games.vercel.app/"><title>Accessible Board Games</title></head><body style="background:#020617;color:#e2e8f0;font-family:sans-serif;display:grid;place-items:center;min-height:100vh"><p>Loading Accessible Board Games…</p></body></html>' > out/index.html
+          echo "Shell ready:" && ls out
+
       - name: Init Capacitor Android (if not exists)
         run: |
           if [ ! -d "android" ]; then

@@ -1,6 +1,5 @@
 {
   "framework": "nextjs",
   "buildCommand": "npm run build",
-  "installCommand": "npm install --legacy-peer-deps --loglevel=error --no-audit --no-fund",
-  "skipTrailingSlashRedirect": true
+  "installCommand": "npm install --legacy-peer-deps --loglevel=error --no-audit --no-fund"
 }

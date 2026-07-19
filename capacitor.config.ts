@@ -8,8 +8,8 @@ const config: CapacitorConfig = {
     // For production APK that loads live Vercel site (always up-to-date):
     // Comment out url and androidScheme to use local static files (offline mode)
     // Uncomment below to make APK load live site (requires internet):
-    // url: 'https://accessible-board-games.vercel.app',
-    // cleartext: true,
+    url: 'https://accessible-board-games.vercel.app',
+    cleartext: true,
   },
   plugins: {
     CapacitorHttp: {
