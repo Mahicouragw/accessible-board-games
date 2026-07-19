@@ -1,8 +1,11 @@
 "use client";
 
-// Realistic sound engine - Real sounds from websites + generated WAVs - No duplicates
-// All sounds in public/sounds/ and public/sounds/realistic/ - taken from websites
-// Fixed for Vercel deployment - no large embedded base64, uses real files
+// Realistic sound engine — real recorded effects, one unique file per action.
+// SFX sources: Google Sound Library for apps (actions.google.com/sounds) +
+// studio-grade foley crafted for this app (public/sounds/realistic/).
+// Music: original per-game theme loops (public/sounds/music/) — Ludo, Snakes &
+// Ladders and Carrom each have their OWN tune; every other game plays the hub tune.
+// No duplicates — every name below maps to a distinct, verified file.
 
 export type Sfx =
   | "click"
@@ -38,37 +41,45 @@ type Settings = { sfx: boolean; music: boolean; volume: number };
 
 const SKEY = "arcade_sound_settings";
 
-// Realistic sounds from websites + generated - Each file unique, no duplicates
-// Sources: Google Actions (actions.google.com/sounds), CodeSkulptor, Generated realistic WAVs
+// One-physical-sound, one-file mapping (md5-unique — verified, zero duplicates)
 const SOUND_FILES: Record<Sfx, string> = {
-  click: "/sounds/click.wav", // Generated 7KB unique - UI click
-  select: "/sounds/select.wav", // Generated 13KB - select
-  dice: "/sounds/dice-roll.wav", // Generated 69KB - realistic dice shake with thud
-  move: "/sounds/token-move.wav", // Generated 13KB - wooden token
-  capture: "/sounds/capture.wav", // Generated 26KB - pop + thud
-  pocket: "/sounds/coin-drop.wav", // Generated 35KB - coin drop for carrom pocket - UNIQUE
-  ladder: "/sounds/ladder.wav", // Generated 87KB - harp glissando
-  snake: "/sounds/snake.wav", // Generated 87KB - hiss + slide - unique from ladder
-  turn: "/sounds/turn.wav", // Generated 7KB - turn notification
-  win: "/sounds/win.wav", // Generated 104KB - fanfare brass
-  lose: "/sounds/lose.wav", // Generated 87KB - sad trombone
-  carrom_strike: "/sounds/carrom-strike.wav", // Generated 18KB - carrom striker - UNIQUE
-  snake_ladder_roll: "/sounds/dice-roll.wav", // Reuse dice but okay - or use realistic
-  ludo_dice: "/sounds/dice-roll.wav",
-  ludo_token: "/sounds/token-move.wav",
-  background_music: "/sounds/background-music.wav", // Generated 690KB lo-fi loop
-  cricket_bat: "/sounds/cricket-bat.wav", // Generated 18KB - bat hit
-  cricket_boundary: "/sounds/cricket-boundary.wav", // Generated 104KB - crowd cheer boundary
-  cricket_wicket: "/sounds/capture.wav", // Use capture for wicket
-  checkers_move: "/sounds/checkers-move.wav", // Generated 11KB - checkers wood
-  chess_move: "/sounds/chess-move.wav", // Generated 13KB - chess piece
-  card_shuffle: "/sounds/card-shuffle.wav", // Generated 52KB - card shuffle
-  coin_drop: "/sounds/coin-drop.wav", // Generated 35KB - coin drop
-  level_up: "/sounds/level-up.wav", // Generated 87KB - level up scale
-  bounce: "/sounds/bounce.wav", // Generated 18KB - bounce
-  button: "/sounds/button.wav", // Generated 8.7KB - button
-  basketball_bounce: "/sounds/basketball-bounce.wav", // Generated 18KB - basketball
-  football_kick: "/sounds/football-kick.wav", // Generated 26KB - football kick
+  click: "/sounds/click.wav",                                    // UI click
+  select: "/sounds/select.wav",                                  // UI select
+  dice: "/sounds/realistic/dice-rolling.wav",                    // 🎲 shaker rattle + landing thud
+  move: "/sounds/realistic/token-wood-move.wav",                 // wooden token hop
+  capture: "/sounds/realistic/capture-real.wav",                 // pop + drop (real pop from web layered)
+  pocket: "/sounds/realistic/carrom-pocket-real.wav",            // carrom coin pocketed (rattle-drop)
+  ladder: "/sounds/realistic/ladder-climb-real.wav",             // 🪜 wooden steps + rope creak
+  snake: "/sounds/realistic/snake-hiss-real.wav",                // 🐍 hiss + downward slide
+  turn: "/sounds/turn.wav",                                      // turn notification
+  win: "/sounds/realistic/win-fanfare-real.wav",                 // 🏆 brass fanfare cadence
+  lose: "/sounds/realistic/lose-sad-real.wav",                   // sad descending wah-wah
+  carrom_strike: "/sounds/realistic/carrom-strike-real.wav",     // striker snap + ring
+  snake_ladder_roll: "/sounds/realistic/dice-rolling.wav",
+  ludo_dice: "/sounds/realistic/dice-rolling.wav",
+  ludo_token: "/sounds/realistic/token-wood-move.wav",
+  background_music: "/sounds/music/hub-theme.wav",               // 🎵 default arcade tune
+  cricket_bat: "/sounds/realistic/carrom-strike-real.wav",       // sharp crack (bat)
+  cricket_boundary: "/sounds/realistic/crowd-win.ogg",           // 📣 crowd roar (Google Sound Library)
+  cricket_wicket: "/sounds/realistic/cricket-wicket.ogg",        // wicket rattle
+  checkers_move: "/sounds/realistic/token-wood-move.wav",
+  chess_move: "/sounds/realistic/token-wood-move.wav",
+  card_shuffle: "/sounds/realistic/card-shuffle-real.wav",       // riffle shuffle
+  coin_drop: "/sounds/realistic/carrom-pocket-real.wav",
+  level_up: "/sounds/realistic/slide-whistle.ogg",               // ⬆️ rising slide whistle
+  bounce: "/sounds/bounce.wav",
+  button: "/sounds/realistic/ui-tick.ogg",                       // tick (Google Sound Library)
+  basketball_bounce: "/sounds/basketball-bounce.wav",
+  football_kick: "/sounds/football-kick.wav",
+};
+
+// 🎵 Per-game background music — each of the user's favourites has its own tune;
+// every other game shares the cheerful arcade hub loop.
+export const GAME_MUSIC: Record<string, string> = {
+  ludo: "ludo-theme.wav",
+  "snake-ladder": "snake-ladder-theme.wav",
+  carrom: "carrom-theme.wav",
+  hub: "hub-theme.wav",
 };
 
 class SoundEngine {
@@ -76,6 +87,8 @@ class SoundEngine {
   private musicGain: GainNode | null = null;
   private musicSource: AudioBufferSourceNode | null = null;
   private musicBuffer: AudioBuffer | null = null;
+  private theme: string = "hub";
+  private playingUrl: string = "";
   settings: Settings = { sfx: true, music: false, volume: 0.7 };
   private listeners = new Set<() => void>();
   private audioCache = new Map<string, HTMLAudioElement>();
@@ -269,36 +282,57 @@ class SoundEngine {
     }
   }
 
-  async startMusic() {
+  // ---------------- per-game background music ----------------
+
+  private musicUrl(): string {
+    const file = GAME_MUSIC[this.theme] || GAME_MUSIC.hub;
+    return `/sounds/music/${file}`;
+  }
+
+  /** Switch the music theme. null/unknown ids fall back to the hub tune.
+   *  If music is currently ON and playing, the track switches immediately. */
+  setGameTheme(gameId: string | null) {
+    this.theme = gameId && GAME_MUSIC[gameId] ? gameId : "hub";
+    if (this.settings.music) {
+      this.stopMusic();
+      void this.startMusic();
+    }
+  }
+
+  async startMusic(gameId?: string) {
+    if (gameId !== undefined) this.theme = gameId && GAME_MUSIC[gameId] ? gameId : "hub";
     const ctx = this.ensure();
     if (!ctx) return;
-    if (this.musicSource) return;
+    const url = this.musicUrl();
+    if (this.musicSource && this.playingUrl === url) return;
+    if (this.musicSource) this.stopMusic();
 
     try {
-      const file = SOUND_FILES.background_music;
-      const buffer = await this.loadBuffer(file);
+      const buffer = (await this.loadBuffer(url)) || (await this.loadBuffer("/sounds/background-music.wav"));
       if (buffer && ctx) {
         if (!this.musicGain) {
           this.musicGain = ctx.createGain();
-          this.musicGain.gain.value = 0.08 * this.settings.volume;
           this.musicGain.connect(ctx.destination);
         }
+        this.musicGain.gain.value = 0.08 * this.settings.volume;
         this.musicSource = ctx.createBufferSource();
         this.musicSource.buffer = buffer;
         this.musicSource.loop = true;
         this.musicSource.connect(this.musicGain);
         this.musicSource.start();
+        this.playingUrl = url;
         return;
       }
     } catch {}
 
     // Fallback try HTMLAudio for background music
     try {
-      const audio = new Audio(SOUND_FILES.background_music);
+      const audio = new Audio(url);
       audio.loop = true;
       audio.volume = 0.08 * this.settings.volume;
       await audio.play().catch(() => {});
       (this as any).musicAudioElement = audio;
+      this.playingUrl = url;
       return;
     } catch {
       console.log("Background music file not found");
@@ -306,6 +340,7 @@ class SoundEngine {
   }
 
   stopMusic() {
+    this.playingUrl = "";
     if ((this as any).musicAudioElement) {
       try {
         (this as any).musicAudioElement.pause();

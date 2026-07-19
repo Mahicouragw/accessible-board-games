@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "@/lib/session";
 import { getGame } from "@/lib/games";
+import { useGameMusic } from "@/lib/useGameMusic";
 import OnlineMatch from "@/components/games/OnlineMatch";
 import RockPaperScissors from "@/components/games/RockPaperScissors";
 import Memory from "@/components/games/Memory";
@@ -43,6 +44,8 @@ export default function PlayPage({ params }: { params: { game: string } }) {
 
 function PlayPageInner({ params }: { params: { game: string } }) {
   const { game } = params;
+  // 🎵 Every game plays its own background music theme (when music is ON)
+  useGameMusic(game);
   const { player, loading } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
