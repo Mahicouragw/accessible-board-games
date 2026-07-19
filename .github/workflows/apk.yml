@@ -1,4 +1,5 @@
 name: Build APK
+
 permissions:
   contents: write
 
@@ -6,10 +7,7 @@ on:
   push:
     branches: ["main"]
     paths:
-      - "src/**"
-      - "public/**"
-      - "capacitor.config.ts"
-      - "package.json"
+      - "flutter_apk/**"
       - ".github/workflows/apk.yml"
   workflow_dispatch:
 
@@ -20,70 +18,63 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          cache: npm
-
-      - name: Setup Java (for Android)
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: "17"
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
 
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
-
-      - name: Generate icons for PWA/APK
-        run: npm run icons:generate || true
-
-      - name: Build Next.js
-        run: npm run build
-        env:
-          DATABASE_URL: postgresql://dummy:dummy@localhost:5432/dummy
-
-      - name: Prepare Capacitor web shell
+      - name: Generate Android platform files
         run: |
-          mkdir -p out
-          printf '%s\n' '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=https://accessible-board-games.vercel.app/"><title>Accessible Board Games</title></head><body style="background:#020617;color:#e2e8f0;font-family:sans-serif;display:grid;place-items:center;min-height:100vh"><p>Loading Accessible Board Games…</p></body></html>' > out/index.html
-          echo "Shell ready:" && ls out
+          cd flutter_apk
+          flutter create --platforms=android --project-name board_games --org com.mahicouragw .
 
-      - name: Init Capacitor Android (if not exists)
+      - name: Add internet permission & app label
         run: |
-          if [ ! -d "android" ]; then
-            npx cap add android
-          fi
-          npx cap copy
-          npx cap sync
+          python3 - <<'EOF'
+          import re
+          p = 'flutter_apk/android/app/src/main/AndroidManifest.xml'
+          s = open(p).read()
+          if 'android.permission.INTERNET' not in s:
+              s = s.replace('<application',
+                            '    <uses-permission android:name="android.permission.INTERNET"/>\n    <application', 1)
+          s = re.sub(r'android:label="[^"]*"', 'android:label="Accessible Board Games"', s, count=1)
+          if 'usesCleartextTraffic' not in s:
+              s = re.sub(r'<application\b', '<application android:usesCleartextTraffic="true"', s, count=1)
+          open(p, 'w').write(s)
+          print('Manifest patched')
+          EOF
 
-      - name: Build Debug APK
+      - name: Build debug APK
         run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          cd flutter_apk
+          flutter pub get
+          flutter build apk --debug
 
-      - name: Upload APK Artifact
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          retention-days: 30
+          name: accessible-board-games-apk
+          path: flutter_apk/build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 90
 
-      - name: Upload APK as Release (optional)
+      - name: Upload APK as Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          files: android/app/build/outputs/apk/debug/app-debug.apk
-          tag_name: apk-debug-${{ github.run_number }}
-          name: "APK Debug Build ${{ github.run_number }}"
+          files: flutter_apk/build/app/outputs/flutter-apk/app-debug.apk
+          tag_name: flutter-apk-${{ github.run_number }}
+          name: "Accessible Board Games APK (build ${{ github.run_number }})"
           body: |
-            Accessible Board Games APK - Debug Build
-            - Built from commit ${{ github.sha }}
-            - Install on Android: allow unknown sources
-            - Features: Ludo, Carrom, 2048, Memory, etc + Accessibility toolbar
+            🎲 Accessible Board Games — Android APK built automatically from main.
+            - Opens the live app at https://accessible-board-games.vercel.app — 19 games with realistic sounds & per-game music
+            - Install on Android: allow "Install unknown apps" for your browser/file manager
+            - Fully TalkBack-friendly
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
