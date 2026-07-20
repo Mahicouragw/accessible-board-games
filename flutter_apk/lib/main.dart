@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 /// Accessible Board Games — 19 TalkBack-friendly games wrapped for Android.
 /// Loads the live web app, so new games, sounds and music arrive instantly.
@@ -64,6 +65,11 @@ class _HubScreenState extends State<HubScreen> {
         ),
       )
       ..loadRequest(Uri.parse(kAppUrl));
+    // Allow game sounds & music without requiring a tap first (Android WebView).
+    final platform = _controller.platform;
+    if (platform is AndroidWebViewController) {
+      platform.setMediaPlaybackRequiresUserGesture(false);
+    }
   }
 
   void _reload() {
