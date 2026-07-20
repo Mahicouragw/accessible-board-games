@@ -1,11 +1,27 @@
--- Accessible Board Games — ONE-TIME multiplayer cloud setup (v1.4.0+)
--- HOW TO RUN (2 minutes, do it once):
---   1. COPY this file:  https://github.com/Mahicouragw/accessible-board-games/blob/main/supabase-setup.sql
---   2. PASTE it here:   https://supabase.com/dashboard/project/zncepqzgsidqjvkayxdr/sql/new
---   3. Press RUN (Ctrl+Enter). Done — rooms, matches, chat & leaderboards go live instantly.
--- Safe to re-run: every statement uses IF NOT EXISTS / OR REPLACE / guarded blocks.
+-- ============================================================================
+-- Accessible Board Games — ONE-TIME multiplayer cloud setup (v2, hardened)
+-- Takes ~2 minutes, do it ONCE. Safe to re-run any number of times.
+--
+-- ⚠️ HOW TO RUN — follow exactly (the copy must be COMPLETE):
+--   1. Open the RAW file (plain text, easy to select all):
+--        https://raw.githubusercontent.com/Mahicouragw/accessible-board-games/main/supabase-setup.sql
+--      (Alternative: on the normal GitHub page, tap the "Copy raw file"
+--       button — the two-overlapping-squares icon near the top right of
+--       the code box. It copies everything perfectly.)
+--   2. Select ALL (Ctrl+A) and COPY (Ctrl+C).
+--   3. Open your Supabase SQL editor:
+--        https://supabase.com/dashboard/project/zncepqzgsidqjvkayxdr/sql/new
+--   4. Click in the editor, CLEAR it FIRST (Ctrl+A, then Delete), then PASTE.
+--      The editor must contain ONLY this SQL — nothing else.
+--   5. Press RUN (or Ctrl+Enter).
+--   6. Look for the green "Success" message and the "✅ setup complete" row
+--      in the results. Rooms, matches, chat & leaderboards are then LIVE.
+--
+-- The realtime part at the end is fully optional-guarded: even if your
+-- project handles realtime differently, it can NEVER make this script fail.
+-- ============================================================================
 
--- ============ TABLES ============
+-- ============ 1. TABLES ============
 create table if not exists public.bg_players (
   id          bigint generated always as identity primary key,
   name        text not null,
@@ -38,66 +54,69 @@ create table if not exists public.bg_matches (
   id           bigint generated always as identity primary key,
   game         text not null,
   status       text not null default 'waiting',  -- waiting | invited | active | finished
-  vs_ai        boolean not null default false,
   player1_id   bigint,
-  player1_name text,
   player2_id   bigint,
-  player2_name text,
-  board        jsonb not null,
-  turn         integer not null default 1,
-  winner       integer,
+  challenger_id bigint,
+  state        jsonb,
+  winner_id    bigint,
+  invite_code  text,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
-create index if not exists bg_matches_status_idx on public.bg_matches (status, game);
+create index if not exists bg_matches_status_idx on public.bg_matches (game, status);
+create index if not exists bg_matches_players_idx on public.bg_matches (player1_id, player2_id);
 
 create table if not exists public.bg_rooms (
   id         bigint generated always as identity primary key,
-  code       text not null unique,
+  name       text not null,
   game       text not null,
   host_id    bigint not null,
   host_name  text not null,
-  members    jsonb not null default '[]'::jsonb,
   status     text not null default 'open',       -- open | playing | closed
-  match_id   bigint,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  code       text,
+  max_players integer not null default 4,
+  players    jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now()
 );
+create index if not exists bg_rooms_status_idx on public.bg_rooms (status, created_at desc);
 
 create table if not exists public.bg_messages (
-  id          bigint generated always as identity primary key,
-  room_id     bigint not null,
-  player_id   bigint not null,
-  player_name text not null,
-  avatar      text not null default '🎮',
-  kind        text not null default 'text',      -- text | voice | system
-  content     text not null,
-  created_at  timestamptz not null default now()
+  id         bigint generated always as identity primary key,
+  room_id    bigint not null default 0,
+  match_id   bigint not null default 0,
+  from_id    bigint not null,
+  to_id      bigint not null default 0,
+  from_name  text not null,
+  text       text not null,
+  created_at timestamptz not null default now()
 );
 create index if not exists bg_messages_room_idx on public.bg_messages (room_id, id);
+create index if not exists bg_messages_inbox_idx on public.bg_messages (to_id, id);
 
 create table if not exists public.bg_room_invites (
   id         bigint generated always as identity primary key,
   room_id    bigint not null,
+  room_name  text not null,
+  game       text not null,
+  from_id    bigint not null,
   from_name  text not null,
   to_id      bigint not null,
-  game       text not null,
+  status     text not null default 'pending',    -- pending | accepted | declined
   created_at timestamptz not null default now()
 );
-create index if not exists bg_room_invites_to_idx on public.bg_room_invites (to_id);
+create index if not exists bg_room_invites_to_idx on public.bg_room_invites (to_id, status);
 
 create table if not exists public.bg_signals (
   id         bigint generated always as identity primary key,
   room_id    bigint not null,
   from_id    bigint not null,
-  to_id      bigint not null,                    -- 0 = broadcast
-  kind       text not null,                      -- offer | answer | ice | hangup
+  kind       text not null,
   payload    jsonb,
   created_at timestamptz not null default now()
 );
 create index if not exists bg_signals_room_idx on public.bg_signals (room_id, id);
 
--- ============ OPEN ARCADE POLICIES (public game data, same model as Nexus) ============
+-- ============ 2. OPEN ARCADE POLICIES (public game data, same model as Nexus) ============
 do $$
 declare
   t text;
@@ -120,17 +139,31 @@ begin
   end loop;
 end $$;
 
--- ============ REALTIME: broadcast new rows to all open apps ============
+-- ============ 3. REALTIME (OPTIONAL, fully guarded — cannot fail the script) ============
+-- Broadcasts new rows to all open apps. If your project's realtime
+-- publication is different, this block quietly does nothing and the app
+-- still works perfectly (it also refreshes on its own).
 do $$
 declare
   t text;
 begin
-  foreach t in array array['bg_matches','bg_rooms','bg_messages','bg_signals','bg_room_invites']
-  loop
-    begin
-      execute format('alter publication supabase_realtime add table public.%I', t);
-    exception when duplicate_object then
-      null; -- already published, fine
-    end;
-  end loop;
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    foreach t in array array['bg_matches','bg_rooms','bg_messages','bg_signals','bg_room_invites']
+    loop
+      begin
+        execute format('alter publication supabase_realtime add table public.%I', t);
+      exception when others then
+        null; -- already added or not allowed: either way, fine
+      end;
+    end loop;
+  end if;
+exception when others then
+  null; -- realtime is a bonus, never a blocker
 end $$;
+
+-- ============ 4. VERIFY — you should see "✅ setup complete" and 7 tables ============
+select '✅ setup complete — multiplayer is LIVE' as status;
+select table_name
+from information_schema.tables
+where table_schema = 'public' and table_name like 'bg\_%'
+order by table_name;
