@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/session";
 import { GAMES, getGame } from "@/lib/games";
 import { sound } from "@/lib/sound";
+import { announce } from "@/lib/a11y";
 import type { RoomMember } from "@/db/schema";
 
 type Room = {
@@ -22,6 +23,7 @@ export default function RoomsBrowser() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [creating, setCreating] = useState(false);
   const [pickGame, setPickGame] = useState(false);
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -43,8 +45,15 @@ export default function RoomsBrowser() {
   }, []);
 
   async function createRoom(game: string) {
-    if (!player || creating) return;
+    if (!player) {
+      const msg = "Please set your player name on the home screen first — then you can create a room.";
+      setNotice(msg);
+      announce(msg);
+      return;
+    }
+    if (creating) return;
     setCreating(true);
+    setNotice("");
     sound.play("click");
     try {
       const res = await fetch("/api/rooms", {
@@ -52,8 +61,22 @@ export default function RoomsBrowser() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: player?.code ?? "", game }),
       });
-      const data = await res.json();
-      if (data.room) router.push(`/rooms/${data.room.id}`);
+      const data = await res.json().catch(() => ({}));
+      if (data.room) {
+        announce(`Room created for ${game}. Opening your live room.`);
+        router.push(`/rooms/${data.room.id}`);
+        return;
+      }
+      const msg =
+        data.error ||
+        data.message ||
+        "Room could not be created right now. Please try again in a moment.";
+      setNotice(msg);
+      announce(`Room creation failed. ${msg}`);
+    } catch {
+      const msg = "Could not reach the game server. Check your internet and try again.";
+      setNotice(msg);
+      announce(msg);
     } finally {
       setCreating(false);
       setPickGame(false);
@@ -81,6 +104,12 @@ export default function RoomsBrowser() {
           + Create Room
         </button>
       </div>
+
+      {notice && (
+        <p role="alert" className="mt-3 rounded-xl border border-amber-600/40 bg-amber-900/30 px-4 py-2 text-sm text-amber-200">
+          ⚠️ {notice}
+        </p>
+      )}
 
       {pickGame && (
         <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-800/50 p-4">

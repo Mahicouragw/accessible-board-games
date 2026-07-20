@@ -7,7 +7,8 @@ Fully accessible, multiplayer board games with cloud database + Android APK.
 ## ✅ Fixed — All Errors Resolved
 
 - ✅ Next.js 14.2.5 stable (was invalid 16.2.6)
-- ✅ DATABASE_URL mock fallback — builds without DB, works with DB
+- ✅ Live cloud multiplayer via **Supabase PostgREST** (no DATABASE_URL needed on the host) — one-time `supabase-setup.sql`
+- ✅ DATABASE_URL mock fallback — builds without DB, single-player games always work
 - ✅ `next.config.ts` → `.js`, Tailwind v4 → v3, ESLint flat → json
 - ✅ `Cannot read properties of undefined (reading 'code')` fixed via guest player
 - ✅ Client exception on `/play/[game]` fixed (removed `use(params)` Next 15 API)

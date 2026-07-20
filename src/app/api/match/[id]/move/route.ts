@@ -1,6 +1,4 @@
-import { db, isDbConfigured } from "@/db";
-import { players, matches } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { store, CloudNotReadyError, cloudSetupJson, type Row } from "@/lib/cloud-store";
 import {
   checkTicTacToe,
   bestTicTacToeMove,
@@ -55,24 +53,17 @@ function chessAiMove(g: Chess): Move | null {
   return pick[Math.floor(Math.random() * pick.length)] ?? moves[0];
 }
 
-async function applyResult(match: {
-  player1Id: number | null;
-  player2Id: number | null;
-  vsAi: boolean;
-}, winner: number) {
+async function applyResult(match: Row, winner: number) {
   // winner: 0 draw, 1 player1, 2 player2
   const bump = async (id: number | null, field: "wins" | "losses" | "draws") => {
     if (!id) return;
-    const [p] = await db.select().from(players).where(eq(players.id, id));
+    const p = await store.players.findById(id);
     if (!p) return;
-    await db
-      .update(players)
-      .set({
-        [field]: p[field] + 1,
-        totalGames: p.totalGames + 1,
-        xp: p.xp + (field === "wins" ? 25 : field === "draws" ? 10 : 5),
-      } as Partial<typeof players.$inferInsert>)
-      .where(eq(players.id, id));
+    await store.players.update(id, {
+      [field]: Number(p[field] || 0) + 1,
+      totalGames: Number(p.totalGames || 0) + 1,
+      xp: Number(p.xp || 0) + (field === "wins" ? 25 : field === "draws" ? 10 : 5),
+    });
   };
 
   if (winner === 0) {
@@ -92,21 +83,20 @@ export async function POST(
   { params }: { params: { id: string } },
 ) {
   try {
-    const { id } = params;
-    const matchId = Number(id);
+    const matchId = Number(params.id);
     const { code, move } = await req.json();
     const cleanCode = String(code ?? "").trim().toUpperCase();
 
-    const [player] = await db.select().from(players).where(eq(players.code, cleanCode));
+    const player = await store.players.findByCode(cleanCode);
     if (!player) return Response.json({ error: "player not found" }, { status: 404 });
 
-    const [match] = await db.select().from(matches).where(eq(matches.id, matchId));
+    const match = await store.matches.byId(matchId);
     if (!match) return Response.json({ error: "match not found" }, { status: 404 });
     if (match.status !== "active") {
       return Response.json({ error: "match not active", match }, { status: 400 });
     }
 
-    const you = match.player1Id === player?.id ? 1 : match.player2Id === player?.id ? 2 : 0;
+    const you = match.player1Id === player.id ? 1 : match.player2Id === player.id ? 2 : 0;
     if (you === 0) return Response.json({ error: "not in this match" }, { status: 403 });
     if (match.turn !== you) return Response.json({ error: "not your turn", match }, { status: 400 });
 
@@ -130,20 +120,13 @@ export async function POST(
         turn = 1;
       }
 
-      const [updated] = await db
-        .update(matches)
-        .set({
-          board,
-          turn,
-          winner,
-          status: winner === null ? "active" : "finished",
-          updatedAt: new Date(),
-        })
-        .where(eq(matches.id, matchId))
-        .returning();
-
+      const updated = await store.matches.update(matchId, {
+        board, turn, winner,
+        status: winner === null ? "active" : "finished",
+        updatedAt: new Date().toISOString(),
+      });
       if (winner !== null) await applyResult(match, winner);
-      return Response.json({ match: updated });
+      return Response.json({ match: updated, cloud: true });
     }
 
     if (match.game === "connect-four") {
@@ -164,20 +147,13 @@ export async function POST(
         turn = 1;
       }
 
-      const [updated] = await db
-        .update(matches)
-        .set({
-          board,
-          turn,
-          winner,
-          status: winner === null ? "active" : "finished",
-          updatedAt: new Date(),
-        })
-        .where(eq(matches.id, matchId))
-        .returning();
-
+      const updated = await store.matches.update(matchId, {
+        board, turn, winner,
+        status: winner === null ? "active" : "finished",
+        updatedAt: new Date().toISOString(),
+      });
       if (winner !== null) await applyResult(match, winner);
-      return Response.json({ match: updated });
+      return Response.json({ match: updated, cloud: true });
     }
 
     if (match.game === "chess") {
@@ -212,24 +188,20 @@ export async function POST(
       }
 
       const turn = g.turn() === "w" ? 1 : 2;
-      const [updated] = await db
-        .update(matches)
-        .set({
-          board: { fen: g.fen() },
-          turn,
-          winner,
-          status: winner === null ? "active" : "finished",
-          updatedAt: new Date(),
-        })
-        .where(eq(matches.id, matchId))
-        .returning();
-
+      const updated = await store.matches.update(matchId, {
+        board: { fen: g.fen() }, turn, winner,
+        status: winner === null ? "active" : "finished",
+        updatedAt: new Date().toISOString(),
+      });
       if (winner !== null) await applyResult(match, winner);
-      return Response.json({ match: updated });
+      return Response.json({ match: updated, cloud: true });
     }
 
     return Response.json({ error: "unsupported game" }, { status: 400 });
   } catch (e) {
+    if (e instanceof CloudNotReadyError) {
+      return Response.json(cloudSetupJson(), { status: 503 });
+    }
     console.error(e);
     return Response.json({ error: "failed" }, { status: 500 });
   }

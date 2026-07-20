@@ -1,6 +1,5 @@
-import { db, isDbConfigured } from "@/db";
-import { players, rooms, messages, type RoomMember } from "@/db/schema";
-import { eq, ne, desc, and } from "drizzle-orm";
+import { store, CloudNotReadyError, cloudSetupJson } from "@/lib/cloud-store";
+import type { RoomMember } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -14,75 +13,56 @@ function genCode() {
 // List open / playing rooms anyone can join or spectate.
 export async function GET() {
   try {
-    if (!isDbConfigured()) {
-      return Response.json({ ok: true, players: [], rooms: [], matches: [], invites: [], messages: [], scores: [] });
-    }
-
-    const rows = await db
-      .select()
-      .from(rooms)
-      .where(ne(rooms.status, "closed"))
-      .orderBy(desc(rooms.updatedAt))
-      .limit(30);
-    return Response.json({ rooms: rows });
+    const rooms = await store.rooms.listOpen();
+    return Response.json({ rooms, cloud: true });
   } catch (e) {
-    console.error(e);
-    return Response.json({ rooms: [] });
+    if (!(e instanceof CloudNotReadyError)) console.error(e);
+    return Response.json({ rooms: [], cloud: false });
   }
 }
 
 // Create a new room.
 export async function POST(req: Request) {
   try {
-    if (!isDbConfigured()) {
-      return Response.json({ ok: true, message: "Demo mode - multiplayer requires DATABASE_URL, single-player works" });
-    }
-
     const { code, game } = await req.json();
     const c = String(code ?? "").trim().toUpperCase();
     const g = String(game ?? "").trim();
     if (!c || !g) return Response.json({ error: "code and game required" }, { status: 400 });
 
-    const [host] = await db.select().from(players).where(eq(players.code, c));
-    if (!host) return Response.json({ error: "player not found" }, { status: 404 });
+    const host = await store.players.findByCode(c);
+    if (!host) {
+      return Response.json({ error: "Player session not found. Please set your player name again from the home screen." }, { status: 404 });
+    }
 
     let roomCode = genCode();
-    for (let i = 0; i < 5; i++) {
-      const [dup] = await db.select().from(rooms).where(eq(rooms.code, roomCode));
+    for (let i = 0; i < 6; i++) {
+      const dup = await store.rooms.byCode(roomCode);
       if (!dup) break;
       roomCode = genCode();
     }
 
     const member: RoomMember = {
-      id: host.id,
-      name: host.name,
-      avatar: host.avatar,
-      role: "player",
+      id: host.id, name: host.name, avatar: host.avatar, role: "player",
     };
 
-    const [room] = await db
-      .insert(rooms)
-      .values({
-        code: roomCode,
-        game: g,
-        hostId: host.id,
-        hostName: host.name,
-        members: [member],
-        status: "open",
-      })
-      .returning();
+    const room = await store.rooms.insert({
+      code: roomCode, game: g,
+      hostId: host.id, hostName: host.name,
+      members: [member], status: "open",
+    });
+    if (!room) throw new Error("room insert returned no row");
 
-    await db.insert(messages).values({
-      roomId: room.id,
-      playerId: host.id,
-      playerName: host.name,
-      avatar: host.avatar,
-      kind: "system",
+    await store.messages.insert({
+      roomId: room.id, playerId: host.id, playerName: host.name,
+      avatar: host.avatar, kind: "system",
       content: `${host.name} created the room`,
     });
 
-    return Response.json({ room });
+    return Response.json({ room, cloud: true });
   } catch (e) {
+    if (e instanceof CloudNotReadyError) {
+      return Response.json(cloudSetupJson(), { status: 503 });
+    }
     console.error(e);
     return Response.json({ error: "failed" }, { status: 500 });
   }
@@ -91,19 +71,12 @@ export async function POST(req: Request) {
 // Close rooms that a host wants to end (kept for symmetry, not required).
 export async function DELETE(req: Request) {
   try {
-    if (!isDbConfigured()) {
-      return Response.json({ ok: true, message: "Demo mode - multiplayer requires DATABASE_URL, single-player works" });
-    }
-
     const { searchParams } = new URL(req.url);
     const id = Number(searchParams.get("id"));
     const code = String(searchParams.get("code") ?? "").trim().toUpperCase();
-    const [host] = await db.select().from(players).where(eq(players.code, code));
+    const host = await store.players.findByCode(code);
     if (!host) return Response.json({ error: "player not found" }, { status: 404 });
-    await db
-      .update(rooms)
-      .set({ status: "closed" })
-      .where(and(eq(rooms.id, id), eq(rooms.hostId, host.id)));
+    await store.rooms.updateOwned(id, host.id, { status: "closed", updatedAt: new Date().toISOString() });
     return Response.json({ ok: true });
   } catch (e) {
     console.error(e);

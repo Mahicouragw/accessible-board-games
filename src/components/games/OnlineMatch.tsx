@@ -33,6 +33,7 @@ export default function OnlineMatch({
   const [stage, setStage] = useState<Stage>("lobby");
   const [match, setMatch] = useState<Match | null>(null);
   const [you, setYou] = useState<1 | 2>(1);
+  const youRef = useRef<1 | 2>(1);
   const [busy, setBusy] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -42,6 +43,49 @@ export default function OnlineMatch({
       pollRef.current = null;
     }
   }, []);
+
+  // Track the previous live match state so TalkBack can announce every change
+  // (opponent joins, opponent moves -> your turn, game result).
+  const prevRef = useRef<{
+    turn: number;
+    status: string;
+    winner: number | null;
+    p2: number | null;
+  } | null>(null);
+
+  const describeResult = useCallback((m: Match, me: 1 | 2) => {
+    if (m.winner === null) return "";
+    if (m.winner === 0) return "Game over. It is a draw.";
+    return m.winner === me ? "Game over. You won!" : "Game over. You lost this one.";
+  }, []);
+
+  // Announce live state transitions; returns nothing.
+  const syncTalkback = useCallback(
+    (m: Match, me: 1 | 2, via: "poll" | "move" | "join") => {
+      const prev = prevRef.current;
+      prevRef.current = { turn: m.turn, status: m.status, winner: m.winner, p2: m.player2Id };
+      if (!prev) return;
+
+      // Opponent just joined a waiting/invited match.
+      if (m.status === "active" && prev.status !== "active") {
+        announce(`Opponent found! ${m.player1Name ?? "Player 1"} versus ${m.player2Name ?? "Player 2"}. Game on!`);
+        sound.play("turn");
+        return;
+      }
+      // Game finished.
+      if (m.status === "finished" && prev.status !== "finished") {
+        announce(describeResult(m, me));
+        sound.play(m.winner === me ? "win" : m.winner === 0 ? "turn" : "lose");
+        return;
+      }
+      // Turn flipped to me during active play (opponent moved).
+      if (m.status === "active" && prev.status === "active" && prev.turn !== m.turn && m.turn === me && via === "poll") {
+        announce("Opponent moved. Your turn!");
+        sound.play("turn");
+      }
+    },
+    [describeResult],
+  );
 
   const startPoll = useCallback(
     (id: number) => {
@@ -53,6 +97,7 @@ export default function OnlineMatch({
           const data = await res.json();
           const m: Match = data.match;
           setMatch(m);
+          syncTalkback(m, youRef.current, "poll");
           if (m.status === "active") setStage("playing");
           if (m.status === "finished") {
             stopPoll();
@@ -63,7 +108,7 @@ export default function OnlineMatch({
         }
       }, 1400);
     },
-    [stopPoll, refresh],
+    [stopPoll, refresh, syncTalkback],
   );
 
   useEffect(() => () => stopPoll(), [stopPoll]);
@@ -81,6 +126,7 @@ export default function OnlineMatch({
         const mine = m.player1Id === (player?.id ?? 0) ? 1 : m.player2Id === (player?.id ?? 0) ? 2 : 0;
         if (mine === 0) return;
         setYou(mine as 1 | 2);
+        youRef.current = mine as 1 | 2;
         // If I'm the invited player, accept.
         if (m.status === "invited" && mine === 2) {
           const acc = await fetch(`/api/match/${initialMatchId}/accept`, {
@@ -92,9 +138,13 @@ export default function OnlineMatch({
         }
         if (!active) return;
         setMatch(m);
-        if (m.status === "active") setStage("playing");
-        else {
+        prevRef.current = { turn: m.turn, status: m.status, winner: m.winner, p2: m.player2Id };
+        if (m.status === "active") {
+          setStage("playing");
+          announce(`Challenge accepted! You play ${m.player1Name ?? "your opponent"}. Game on!`);
+        } else {
           setStage("waiting");
+          announce(`Invite sent. ${m.player2Name ?? "Your friend"} has been challenged; waiting for them to accept.`);
           startPoll(m.id);
         }
       } catch {
@@ -110,6 +160,8 @@ export default function OnlineMatch({
     if (!player) return;
     setBusy(true);
     setStage("searching");
+    announce(vsAi ? "Starting a game against the AI." : "Finding an online opponent. Please wait.");
+    prevRef.current = null;
     try {
       const res = await fetch("/api/match/find", {
         method: "POST",
@@ -118,14 +170,27 @@ export default function OnlineMatch({
       });
       const data = await res.json();
       const m: Match = data.match;
+      if (!m) {
+        const msg = data.error || data.message || "Online matchmaking is unavailable right now.";
+        announce(msg);
+        setStage("lobby");
+        return;
+      }
+      const meYou: 1 | 2 = data.you === 2 ? 2 : 1;
       setMatch(m);
-      setYou(data.you);
-      if (m.status === "active") setStage("playing");
-      else {
+      setYou(meYou);
+      youRef.current = meYou;
+      prevRef.current = { turn: m.turn, status: m.status, winner: m.winner, p2: m.player2Id };
+      if (m.status === "active") {
+        setStage("playing");
+        announce(vsAi ? "Game started! You play first against the AI." : `Matched with ${m.player2Name ?? "an opponent"}. Game on!`);
+      } else {
         setStage("waiting");
+        announce("You are in the queue. Waiting for an opponent to join.");
         startPoll(m.id);
       }
     } catch {
+      announce("Could not reach the game server. Check your internet and try again.");
       setStage("lobby");
     } finally {
       setBusy(false);
@@ -158,13 +223,20 @@ export default function OnlineMatch({
       const data = await res.json();
       if (data.match) {
         setMatch(data.match);
-        sound.play(data.match.status === "finished" ? "turn" : "move");
-        if (data.match.status === "finished") {
+        const finished = data.match.status === "finished";
+        sound.play(finished ? "turn" : "move");
+        if (finished) {
+          syncTalkback(data.match, you, "move");
           stopPoll();
           refresh();
         } else if (!match.vsAi) {
+          announce("Move sent. Waiting for your opponent.");
           startPoll(match.id);
+        } else {
+          announce("AI replied. Your turn.");
         }
+      } else if (data.error) {
+        announce(`Move not accepted: ${data.error}`);
       }
     } finally {
       setBusy(false);

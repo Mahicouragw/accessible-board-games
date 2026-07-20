@@ -1,6 +1,4 @@
-import { db, isDbConfigured } from "@/db";
-import { rooms } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { store, CloudNotReadyError, cloudSetupJson } from "@/lib/cloud-store";
 
 export const dynamic = "force-dynamic";
 
@@ -9,15 +7,13 @@ export async function GET(
   { params }: { params: { id: string } },
 ) {
   try {
-    if (!isDbConfigured()) {
-      return Response.json({ ok: true, players: [], rooms: [], matches: [], invites: [], messages: [], scores: [] });
-    }
-
-    const { id } = params;
-    const [room] = await db.select().from(rooms).where(eq(rooms.id, Number(id)));
+    const room = await store.rooms.byId(Number(params.id));
     if (!room) return Response.json({ error: "not found" }, { status: 404 });
-    return Response.json({ room });
+    return Response.json({ room, cloud: true });
   } catch (e) {
+    if (e instanceof CloudNotReadyError) {
+      return Response.json(cloudSetupJson(), { status: 503 });
+    }
     console.error(e);
     return Response.json({ error: "failed" }, { status: 500 });
   }

@@ -1,6 +1,4 @@
-import { db, isDbConfigured } from "@/db";
-import { matches } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { store, CloudNotReadyError, cloudSetupJson } from "@/lib/cloud-store";
 
 export const dynamic = "force-dynamic";
 
@@ -9,19 +7,17 @@ export async function GET(
   { params }: { params: { id: string } },
 ) {
   try {
-    if (!isDbConfigured()) {
-      return Response.json({ ok: true, players: [], rooms: [], matches: [], invites: [], messages: [], scores: [] });
-    }
-
-    const { id } = params;
-    const matchId = Number(id);
+    const matchId = Number(params.id);
     if (!Number.isFinite(matchId)) {
       return Response.json({ error: "invalid id" }, { status: 400 });
     }
-    const [match] = await db.select().from(matches).where(eq(matches.id, matchId));
+    const match = await store.matches.byId(matchId);
     if (!match) return Response.json({ error: "not found" }, { status: 404 });
-    return Response.json({ match });
+    return Response.json({ match, cloud: true });
   } catch (e) {
+    if (e instanceof CloudNotReadyError) {
+      return Response.json(cloudSetupJson(), { status: 503 });
+    }
     console.error(e);
     return Response.json({ error: "failed" }, { status: 500 });
   }
@@ -33,11 +29,10 @@ export async function DELETE(
   { params }: { params: { id: string } },
 ) {
   try {
-    const { id } = params;
-    const matchId = Number(id);
-    const [match] = await db.select().from(matches).where(eq(matches.id, matchId));
+    const matchId = Number(params.id);
+    const match = await store.matches.byId(matchId);
     if (match && (match.status === "waiting" || match.status === "invited")) {
-      await db.delete(matches).where(eq(matches.id, matchId));
+      await store.matches.remove(matchId);
     }
     return Response.json({ ok: true });
   } catch (e) {

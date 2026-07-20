@@ -1,6 +1,4 @@
-import { db, isDbConfigured } from "@/db";
-import { players, signals } from "@/db/schema";
-import { eq, and, gt, or, desc } from "drizzle-orm";
+import { store, CloudNotReadyError, cloudSetupJson } from "@/lib/cloud-store";
 
 export const dynamic = "force-dynamic";
 
@@ -10,37 +8,19 @@ export async function GET(
   { params }: { params: { id: string } },
 ) {
   try {
-    if (!isDbConfigured()) {
-      return Response.json({ ok: true, players: [], rooms: [], matches: [], invites: [], messages: [], scores: [] });
-    }
-
-    const { id } = params;
-    const roomId = Number(id);
+    const roomId = Number(params.id);
     const { searchParams } = new URL(req.url);
     const code = String(searchParams.get("code") ?? "").trim().toUpperCase();
     const after = Number(searchParams.get("after") ?? 0);
 
-    const [me] = await db.select().from(players).where(eq(players.code, code));
+    const me = await store.players.findByCode(code);
     if (!me) return Response.json({ signals: [] });
 
-    const rows = await db
-      .select()
-      .from(signals)
-      .where(
-        and(
-          eq(signals.roomId, roomId),
-          gt(signals.id, after),
-          or(eq(signals.toId, me.id), eq(signals.toId, 0)),
-        ),
-      )
-      .orderBy(desc(signals.id))
-      .limit(60);
-
-    const mine = rows.filter((s) => s.fromId !== me.id).reverse();
-    return Response.json({ signals: mine });
+    const signals = await store.signals.forPlayer(roomId, me.id, after);
+    return Response.json({ signals, cloud: true });
   } catch (e) {
-    console.error(e);
-    return Response.json({ signals: [] });
+    if (!(e instanceof CloudNotReadyError)) console.error(e);
+    return Response.json({ signals: [], cloud: false });
   }
 }
 
@@ -50,27 +30,22 @@ export async function POST(
   { params }: { params: { id: string } },
 ) {
   try {
-    const { id } = params;
-    const roomId = Number(id);
+    const roomId = Number(params.id);
     const { code, toId, kind, payload } = await req.json();
     const c = String(code ?? "").trim().toUpperCase();
 
-    const [me] = await db.select().from(players).where(eq(players.code, c));
+    const me = await store.players.findByCode(c);
     if (!me) return Response.json({ error: "player not found" }, { status: 404 });
 
-    const [sig] = await db
-      .insert(signals)
-      .values({
-        roomId,
-        fromId: me.id,
-        toId: Number(toId) || 0,
-        kind: String(kind),
-        payload,
-      })
-      .returning();
-
-    return Response.json({ signal: { id: sig.id } });
+    const sig = await store.signals.insert({
+      roomId, fromId: me.id, toId: Number(toId) || 0,
+      kind: String(kind), payload: payload ?? null,
+    });
+    return Response.json({ signal: { id: sig?.id ?? null }, cloud: true });
   } catch (e) {
+    if (e instanceof CloudNotReadyError) {
+      return Response.json(cloudSetupJson(), { status: 503 });
+    }
     console.error(e);
     return Response.json({ error: "failed" }, { status: 500 });
   }

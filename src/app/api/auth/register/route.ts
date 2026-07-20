@@ -1,8 +1,5 @@
-import { db } from "@/db";
-import { isDbConfigured } from "@/db";
 import * as LocalDB from "@/lib/local-cloud-db";
-import { players } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { store, CloudNotReadyError } from "@/lib/cloud-store";
 
 export const dynamic = "force-dynamic";
 
@@ -16,31 +13,28 @@ function genCode() {
 const AVATARS = ["🦊","🐼","🦁","🐸","🐵","🐯","🦄","🐙","🐳","🦉","🐲","🦖","🐧","🐨"];
 
 export async function POST(req: Request) {
+  const { name, phone } = await req.json().catch(() => ({ name: "", phone: "" }));
+  const clean = String(name ?? "").trim().slice(0, 24);
+  const cleanPhone = String(phone ?? "").trim().slice(0, 20);
+  if (!clean) return Response.json({ error: "Name is required" }, { status: 400 });
+
   try {
-    const { name, phone } = await req.json();
-    const clean = String(name ?? "").trim().slice(0, 24);
-    const cleanPhone = String(phone ?? "").trim().slice(0, 20);
-    if (!clean) return Response.json({ error: "Name is required" }, { status: 400 });
-
-    if (!isDbConfigured()) {
-      // REAL Local Cloud DB with phone support - no Neon needed!
-      const player = LocalDB.createPlayer(clean, cleanPhone);
-      return Response.json({ player });
-    }
-
+    // Live cloud: unique login code, shared across devices.
     let code = genCode();
-    for (let i = 0; i < 5; i++) {
-      const existing = await db.select().from(players).where(eq(players.code, code));
-      if (existing.length === 0) break;
+    for (let i = 0; i < 6; i++) {
+      const dup = await store.players.findByCode(code);
+      if (!dup) break;
       code = genCode();
     }
     const avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
-    const [player] = await db.insert(players).values({ name: clean, code, avatar, phone: cleanPhone } as any).returning();
-    return Response.json({ player });
+    const player = await store.players.create({
+      name: clean, code, avatar, phone: cleanPhone || null,
+    });
+    return Response.json({ player, cloud: true });
   } catch (e) {
-    console.error(e);
-    const { name, phone } = await req.json().catch(() => ({ name: "Guest", phone: "" }));
-    const player = LocalDB.createPlayer(String(name ?? "Guest"), String(phone ?? ""));
-    return Response.json({ player });
+    if (!(e instanceof CloudNotReadyError)) console.error("register cloud failed:", e);
+    // Offline / setup fallback: local guest player so solo games keep working.
+    const player = LocalDB.createPlayer(clean, cleanPhone);
+    return Response.json({ player, cloud: false });
   }
 }

@@ -1,22 +1,19 @@
-import { db, isDbConfigured } from "@/db";
-import { players } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { store, CloudNotReadyError } from "@/lib/cloud-store";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
-    if (!isDbConfigured()) {
-      return Response.json({ ok: true, message: "Demo mode - multiplayer requires DATABASE_URL, single-player works" });
-    }
-
     const { code } = await req.json();
     const clean = String(code ?? "").trim().toUpperCase();
     if (!clean) return Response.json({ error: "code required" }, { status: 400 });
-    await db.update(players).set({ lastSeen: new Date() }).where(eq(players.code, clean));
-    return Response.json({ ok: true });
+    const player = await store.players.findByCode(clean);
+    if (player) {
+      await store.players.update(player.id, { lastSeen: new Date().toISOString() });
+    }
+    return Response.json({ ok: true, cloud: true });
   } catch (e) {
-    console.error(e);
-    return Response.json({ error: "failed" }, { status: 500 });
+    if (!(e instanceof CloudNotReadyError)) console.error(e);
+    return Response.json({ ok: true, cloud: false });
   }
 }

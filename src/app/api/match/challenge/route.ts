@@ -1,6 +1,4 @@
-import { db, isDbConfigured } from "@/db";
-import { players, matches } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { store, CloudNotReadyError, cloudSetupJson } from "@/lib/cloud-store";
 import { Chess } from "chess.js";
 
 export const dynamic = "force-dynamic";
@@ -13,10 +11,6 @@ function initBoard(game: string): unknown {
 
 export async function POST(req: Request) {
   try {
-    if (!isDbConfigured()) {
-      return Response.json({ ok: true, message: "Demo mode - multiplayer requires DATABASE_URL, single-player works" });
-    }
-
     const { code, opponentCode, game } = await req.json();
     const c = String(code ?? "").trim().toUpperCase();
     const oc = String(opponentCode ?? "").trim().toUpperCase();
@@ -26,27 +20,22 @@ export async function POST(req: Request) {
     }
     if (c === oc) return Response.json({ error: "cannot challenge yourself" }, { status: 400 });
 
-    const [me] = await db.select().from(players).where(eq(players.code, c));
-    const [opp] = await db.select().from(players).where(eq(players.code, oc));
-    if (!me || !opp) return Response.json({ error: "player not found" }, { status: 404 });
+    const me = await store.players.findByCode(c);
+    const opp = await store.players.findByCode(oc);
+    if (!me) return Response.json({ error: "your player was not found — please register again" }, { status: 404 });
+    if (!opp) return Response.json({ error: "no player found with that friend code" }, { status: 404 });
 
-    const [match] = await db
-      .insert(matches)
-      .values({
-        game: g,
-        status: "invited",
-        vsAi: false,
-        player1Id: me.id,
-        player1Name: me.name,
-        player2Id: opp.id,
-        player2Name: opp.name,
-        board: initBoard(g),
-        turn: 1,
-      })
-      .returning();
-
-    return Response.json({ match, you: 1 });
+    const match = await store.matches.insert({
+      game: g, status: "invited", vsAi: false,
+      player1Id: me.id, player1Name: me.name,
+      player2Id: opp.id, player2Name: opp.name,
+      board: initBoard(g), turn: 1,
+    });
+    return Response.json({ match, you: 1, cloud: true });
   } catch (e) {
+    if (e instanceof CloudNotReadyError) {
+      return Response.json(cloudSetupJson(), { status: 503 });
+    }
     console.error(e);
     return Response.json({ error: "failed" }, { status: 500 });
   }

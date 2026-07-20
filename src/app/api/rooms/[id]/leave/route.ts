@@ -1,6 +1,5 @@
-import { db, isDbConfigured } from "@/db";
-import { players, rooms, messages } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { store } from "@/lib/cloud-store";
+import type { RoomMember } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -9,24 +8,22 @@ export async function POST(
   { params }: { params: { id: string } },
 ) {
   try {
-    const { id } = params;
-    const roomId = Number(id);
+    const roomId = Number(params.id);
     const { code } = await req.json();
     const c = String(code ?? "").trim().toUpperCase();
 
-    const [player] = await db.select().from(players).where(eq(players.code, c));
+    const player = await store.players.findByCode(c);
     if (!player) return Response.json({ ok: true });
 
-    const [room] = await db.select().from(rooms).where(eq(rooms.id, roomId));
+    const room = await store.rooms.byId(roomId);
     if (!room) return Response.json({ ok: true });
 
-    const members = room.members.filter((m) => m.id !== player?.id);
-    await db.insert(messages).values({
-      roomId,
-      playerId: player?.id,
-      playerName: player.name,
-      avatar: player.avatar,
-      kind: "system",
+    const members: RoomMember[] = (Array.isArray(room.members) ? room.members : [])
+      .filter((m) => m.id !== player.id);
+
+    await store.messages.insert({
+      roomId, playerId: player.id, playerName: player.name,
+      avatar: player.avatar, kind: "system",
       content: `${player.name} left`,
     });
 
@@ -37,16 +34,15 @@ export async function POST(
     let status = room.status;
     if (members.length === 0) {
       status = "closed";
-    } else if (room.hostId === player?.id && remainingPlayers.length > 0) {
+    } else if (room.hostId === player.id && remainingPlayers.length > 0) {
       newHostId = remainingPlayers[0].id;
       newHostName = remainingPlayers[0].name;
     }
 
-    await db
-      .update(rooms)
-      .set({ members, status, hostId: newHostId, hostName: newHostName, updatedAt: new Date() })
-      .where(eq(rooms.id, roomId));
-
+    await store.rooms.update(roomId, {
+      members, status, hostId: newHostId, hostName: newHostName,
+      updatedAt: new Date().toISOString(),
+    });
     return Response.json({ ok: true });
   } catch (e) {
     console.error(e);
