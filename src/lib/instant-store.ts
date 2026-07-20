@@ -58,7 +58,7 @@ async function http(method: "GET" | "PUT", body?: Doc): Promise<Response> {
   });
 }
 
-async function load(): Promise<Doc> {
+async function loadFresh(): Promise<Doc> {
   const res = await http("GET");
   if (!res.ok) throw new Error(`instant cloud GET ${res.status}`);
   const doc = (await res.json()) as Doc;
@@ -67,26 +67,74 @@ async function load(): Promise<Doc> {
   return doc;
 }
 
-/** Read-merge-write with retry. `mutate` edits the doc; its return value is the result. */
-async function transact<T>(mutate: (doc: Doc) => T): Promise<T> {
-  let lastErr: any = null;
+// Short per-instance read cache: without it, every player's polling loop
+// (chat/room/match refresh) hits the bin separately and free bins answer
+// with HTTP 429 rate limits. Reads up to ~1.5 s old are fine — clients poll
+// anyway — and our own writes refresh the cache, so reads stay current.
+let cache: { doc: Doc; at: number } | null = null;
+const READ_CACHE_MS = 1500;
+
+async function load(): Promise<Doc> {
+  const now = Date.now();
+  if (cache && now - cache.at < READ_CACHE_MS) return cache.doc;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const doc = await load();
-      const out = mutate(doc);
-      for (const c of COLLECTIONS) {
-        const cap = CAPS[c];
-        if (cap && doc[c].length > cap) doc[c] = doc[c].slice(-cap);
-      }
-      const res = await http("PUT", doc);
-      if (!res.ok) throw new Error(`instant cloud PUT ${res.status}`);
-      return out;
+      const doc = await loadFresh();
+      cache = { doc, at: Date.now() };
+      return doc;
     } catch (e) {
-      lastErr = e;
-      await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
+      if (cache) return cache.doc; // stale data beats an error
+      await sleep(300 * (attempt + 1));
     }
   }
-  throw lastErr;
+  if (cache) return cache.doc; // serve stale rather than nothing
+  return loadFresh(); // cold start with no cache: one last attempt
+}
+
+// Serialize writes per instance + min gap between PUTs. Free JSON bins
+// rate-limit aggressive bursts; a write queue keeps us well under the limit
+// while players act at the same time.
+let writeChain: Promise<any> = Promise.resolve();
+let lastPutAt = 0;
+
+function locked<T>(job: () => Promise<T>): Promise<T> {
+  const run = writeChain.then(job, job);
+  writeChain = run.catch(() => {});
+  return run;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Read-merge-write with retry + backoff (survives bin rate limiting).
+ *  `mutate` edits the doc; its return value is the result. */
+async function transact<T>(mutate: (doc: Doc) => T): Promise<T> {
+  return locked(async () => {
+    let lastErr: any = null;
+    const backoffs = [300, 900, 2000, 4000];
+    for (let attempt = 0; attempt < backoffs.length; attempt++) {
+      try {
+        const doc = await loadFresh(); // always fresh for writes (no clobbering)
+        const out = mutate(doc);
+        for (const c of COLLECTIONS) {
+          const cap = CAPS[c];
+          if (cap && doc[c].length > cap) doc[c] = doc[c].slice(-cap);
+        }
+        // keep a friendly gap between PUTs
+        const gap = 350 - (Date.now() - lastPutAt);
+        if (gap > 0) await sleep(gap);
+        const res = await http("PUT", doc);
+        lastPutAt = Date.now();
+        if (!res.ok) throw new Error(`instant cloud PUT ${res.status}`);
+        cache = { doc, at: Date.now() }; // our write refreshes the read cache
+        return out;
+      } catch (e) {
+        lastErr = e;
+        const jitter = Math.floor(Math.random() * 250);
+        await sleep((backoffs[attempt] ?? 1000) + jitter);
+      }
+    }
+    throw lastErr;
+  });
 }
 
 function nextId(doc: Doc, c: Coll): number {

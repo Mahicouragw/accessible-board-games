@@ -1,6 +1,6 @@
 {
   "name": "accessible-board-games",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Accessible Board Games - Play Ludo, Carrom, Snake Ladder, Chess, Memory, 2048 with full accessibility, multiplayer, rooms, chat, voice, cloud saves",
   "private": false,
   "scripts": {
