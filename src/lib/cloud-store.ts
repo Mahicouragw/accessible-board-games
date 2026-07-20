@@ -1,7 +1,13 @@
-// Cloud store — serverless multiplayer persistence via Supabase PostgREST.
-// No DATABASE_URL or local DB needed: the API routes call these helpers and
-// every Vercel instance shares the same live Postgres through the REST API.
-// Tables are the bg_* tables created by supabase-setup.sql (one-time setup).
+// Cloud store — serverless multiplayer persistence.
+//
+// Primary backend: Supabase PostgREST (bg_* tables, see supabase-setup.sql).
+// Automatic fallback: when the Supabase tables don't exist yet, every call
+// transparently switches to the ZERO-SETUP instant cloud (instant-store.ts),
+// so rooms, matches, chat & leaderboards work online immediately — no SQL,
+// no env vars, nothing for the site owner to do. Supabase is re-probed every
+// 15 minutes, so the arcade self-upgrades after the setup is ever run.
+
+import { instantStore } from "./instant-store";
 
 type Row = Record<string, any>;
 
@@ -93,7 +99,7 @@ export function cloudSetupJson() {
   return {
     setup: true,
     error:
-      "Live multiplayer is in setup mode — the host must run the one-time Supabase SQL (supabase-setup.sql). Solo games keep working.",
+      "Live multiplayer is briefly waking up — please try again in a few seconds. Solo games keep working.",
   };
 }
 
@@ -135,7 +141,8 @@ async function rest(
 
 const one = async (p: Promise<Row[]>): Promise<Row | null> => (await p)[0] ?? null;
 
-export const store = {
+/** Supabase-backed store (direct PostgREST). */
+const supaStore = {
   players: {
     findByCode: (code: string) =>
       one(rest("players", { query: `code=eq.${encodeURIComponent(code)}&limit=1` })),
@@ -224,5 +231,54 @@ export const store = {
     insert: (v: Row) => one(rest("signals", { method: "POST", body: v, rep: true })),
   },
 };
+
+// ---------------------------------------------------------------------------
+// Backend selection wrapper: Supabase first, instant cloud on CloudNotReady.
+// ---------------------------------------------------------------------------
+let instantMode = false;
+let instantSince = 0;
+
+function wrapSection<S extends Record<string, (...args: any[]) => any>>(
+  supa: S,
+  instant: S,
+): S {
+  const out: Record<string, (...args: any[]) => any> = {};
+  for (const key of Object.keys(supa)) {
+    out[key] = async (...args: any[]) => {
+      // Re-probe Supabase periodically so the arcade self-upgrades to the
+      // primary backend after the optional setup runs.
+      if (instantMode && Date.now() - instantSince > 15 * 60 * 1000) {
+        instantMode = false;
+      }
+      if (!instantMode) {
+        try {
+          return await supa[key](...args);
+        } catch (e) {
+          if (!(e instanceof CloudNotReadyError)) throw e;
+          instantMode = true;
+          instantSince = Date.now();
+        }
+      }
+      return instant[key](...args);
+    };
+  }
+  return out as S;
+}
+
+/** Multiplayer store used by all API routes (auto-fallback built in). */
+export const store = {
+  players: wrapSection(supaStore.players, instantStore.players),
+  scores: wrapSection(supaStore.scores, instantStore.scores),
+  matches: wrapSection(supaStore.matches, instantStore.matches),
+  rooms: wrapSection(supaStore.rooms, instantStore.rooms),
+  messages: wrapSection(supaStore.messages, instantStore.messages),
+  roomInvites: wrapSection(supaStore.roomInvites, instantStore.roomInvites),
+  signals: wrapSection(supaStore.signals, instantStore.signals),
+};
+
+/** Which backend just served data ("supabase" or "instant"). */
+export function cloudMode(): "supabase" | "instant" {
+  return instantMode ? "instant" : "supabase";
+}
 
 export type { Row };
