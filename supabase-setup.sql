@@ -2,20 +2,22 @@
 -- Accessible Board Games — ONE-TIME multiplayer cloud setup (v2, hardened)
 -- Takes ~2 minutes, do it ONCE. Safe to re-run any number of times.
 --
--- ⚠️ HOW TO RUN — follow exactly (the copy must be COMPLETE):
---   1. Open the RAW file (plain text, easy to select all):
---        https://raw.githubusercontent.com/Mahicouragw/accessible-board-games/main/supabase-setup.sql
---      (Alternative: on the normal GitHub page, tap the "Copy raw file"
---       button — the two-overlapping-squares icon near the top right of
---       the code box. It copies everything perfectly.)
---   2. Select ALL (Ctrl+A) and COPY (Ctrl+C).
+-- ✅ EASIEST METHOD (no selecting needed — one tap copies the whole file):
+--   1. You are probably ALREADY on the file page. If not:
+--        https://github.com/Mahicouragw/accessible-board-games/blob/main/supabase-setup.sql
+--   2. Tap the "Copy raw file" button (the overlapping-squares icon at the
+--      top-right of the code box). This copies 100% of the file perfectly.
 --   3. Open your Supabase SQL editor:
 --        https://supabase.com/dashboard/project/zncepqzgsidqjvkayxdr/sql/new
---   4. Click in the editor, CLEAR it FIRST (Ctrl+A, then Delete), then PASTE.
---      The editor must contain ONLY this SQL — nothing else.
+--   4. Tap inside the editor, press Ctrl+A then Delete (it must be EMPTY!),
+--      then Ctrl+V to paste ONCE — no old text, no double paste.
 --   5. Press RUN (or Ctrl+Enter).
---   6. Look for the green "Success" message and the "✅ setup complete" row
---      in the results. Rooms, matches, chat & leaderboards are then LIVE.
+--   6. Look for green "Success" + the "✅ setup complete" row + 7 bg_ tables.
+--
+-- 🧭 SELF-DIAGNOSTIC: this file has about 150 lines. If any error mentions
+-- a much bigger line number (like 300 or 845), the editor had leftover or
+-- repeated text — clear it completely (Ctrl+A → Delete) and paste ONCE.
+-- If copy keeps failing, use the simpler twin file supabase-setup-lite.sql.
 --
 -- The realtime part at the end is fully optional-guarded: even if your
 -- project handles realtime differently, it can NEVER make this script fail.
