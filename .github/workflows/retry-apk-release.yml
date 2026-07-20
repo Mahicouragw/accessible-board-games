@@ -46,10 +46,13 @@ jobs:
 
       # Outage-proof release: pure REST with retries (softprops/action-gh-release
       # fails when GitHub's REST API is degraded).
+      - name: Give the APK a friendly name
+        run: cp flutter_apk/build/app/outputs/flutter-apk/app-debug.apk flutter_apk/build/app/outputs/flutter-apk/AccessibleBoardGames.apk
+
       - name: Publish release via REST with retries
         run: python3 .github/scripts/release_apk.py
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APK_PATH: flutter_apk/build/app/outputs/flutter-apk/app-debug.apk
+          APK_PATH: flutter_apk/build/app/outputs/flutter-apk/AccessibleBoardGames.apk
           TAG_BASE: flutter-apk
           RELEASE_NAME: Accessible Board Games APK
