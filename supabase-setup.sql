@@ -14,7 +14,7 @@
 --   5. Press RUN (or Ctrl+Enter).
 --   6. Look for green "Success" + the "✅ setup complete" row + 7 bg_ tables.
 --
--- 🧭 SELF-DIAGNOSTIC: this file has about 150 lines. If any error mentions
+-- 🧭 SELF-DIAGNOSTIC: this file has fewer than 200 lines. If any error mentions
 -- a much bigger line number (like 300 or 845), the editor had leftover or
 -- repeated text — clear it completely (Ctrl+A → Delete) and paste ONCE.
 -- If copy keeps failing, use the simpler twin file supabase-setup-lite.sql.
