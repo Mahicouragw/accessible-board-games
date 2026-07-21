@@ -10,6 +10,7 @@ export type GameId =
   | "carrom"
   | "chess"
   | "cricket"
+  | "hand-cricket"
   | "checkers"
   | "dominoes"
   | "sudoku"
@@ -128,6 +129,15 @@ export const GAMES: GameInfo[] = [
     color: "from-emerald-600 to-green-700",
     online: false,
     scoreLabel: "Highest Score",
+  },
+  {
+    id: "hand-cricket",
+    name: "Hand Cricket",
+    emoji: "⚾",
+    tagline: "Classic 1–6 hand cricket vs the computer! Match = OUT. Toss, bat, bowl & chase — every ball announced, sounds in sync.",
+    color: "from-lime-600 to-emerald-700",
+    online: false,
+    scoreLabel: "Best Innings",
   },
   {
     id: "checkers",

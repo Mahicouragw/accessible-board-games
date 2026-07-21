@@ -18,6 +18,7 @@ import SnakeLadderWithPhone from "@/components/games/SnakeLadderWithPhone";
 import Carrom from "@/components/games/Carrom";
 import CarromWithPhone from "@/components/games/CarromWithPhone";
 import Cricket from "@/components/games/Cricket";
+import HandCricket from "@/components/games/HandCricket";
 import Checkers from "@/components/games/Checkers";
 import Dominoes from "@/components/games/Dominoes";
 import Sudoku from "@/components/games/Sudoku";
@@ -121,6 +122,7 @@ function PlayPageInner({ params }: { params: { game: string } }) {
           {game === "snake-ladder" && <SnakeLadderWithPhone />}
           {game === "carrom" && <CarromWithPhone />}
           {game === "cricket" && <Cricket />}
+          {game === "hand-cricket" && <HandCricket />}
           {game === "checkers" && <Checkers />}
           {game === "dominoes" && <Dominoes />}
           {game === "sudoku" && <Sudoku />}
