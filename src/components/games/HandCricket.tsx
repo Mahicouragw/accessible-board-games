@@ -2,13 +2,15 @@
 
 // 🏏 Hand Cricket — the classic school-game (idea inspired by KM Sanjay's
 // Hand Cricket apps; all code original to this arcade):
-//   Batting: pick 1–6. The computer picks a random 1–6 to bowl.
+//   Batting: pick 1–6. The computer picks 1–6 to bowl.
 //     • Different numbers → your number is scored as runs.
 //     • Same number → you're OUT!
 //   Then swap: you bowl, the computer bats, and it chases your score.
+// Formats: quick single-wicket match, or a 12-ball-per-innings over game.
+// Computer brains: Chill (pure random) or Sneaky (studies YOUR habits!).
 // Built TalkBack-first: every ball is announced the exact moment it happens,
-// and every sound effect fires in sync with the event (bat crack on contact,
-// crowd roar on boundaries, wicket rattle on OUT).
+// and every sound effect (real bat crack, crowd roar, wicket rattle) fires
+// in sync with the event.
 
 import { useEffect, useRef, useState } from "react";
 import { sound } from "@/lib/sound";
@@ -17,6 +19,10 @@ import { useSaveScore } from "@/lib/useSaveScore";
 
 type Phase = "toss-choice" | "toss-play" | "bat-bowl-choice" | "batting" | "bowling" | "over";
 type LogEntry = { n: number; you: number; ai: number; text: string; out: boolean };
+type Format = "wickets" | "overs12";
+type Brain = "chill" | "sneaky";
+
+const OVERS_LIMIT = 12;
 
 // Provably fair 1–6 using crypto randomness (no predictable Math.random).
 function fairPick(): number {
@@ -28,6 +34,8 @@ function fairPick(): number {
 export default function HandCricket() {
   const save = useSaveScore("hand-cricket");
 
+  const [format, setFormat] = useState<Format>("wickets");
+  const [brain, setBrain] = useState<Brain>("chill");
   const [phase, setPhase] = useState<Phase>("toss-choice");
   const [busy, setBusy] = useState(false);
   const [tossPick, setTossPick] = useState<"odd" | "even" | null>(null);
@@ -52,11 +60,14 @@ export default function HandCricket() {
   const [draws, setDraws] = useState(0);
   const [best, setBest] = useState(0);
   const mounted = useRef(true);
+  // Habit trackers for the Sneaky brain (your recent shots / bowls).
+  const myShots = useRef<number[]>([]);
+  const myBowls = useRef<number[]>([]);
 
   useEffect(() => {
     mounted.current = true;
     announce(
-      "Hand Cricket. Classic one-to-six hand cricket against the computer. First the toss: choose odd or even. Every ball is announced, and sounds play exactly with the action.",
+      "Hand Cricket. Classic one-to-six hand cricket against the computer. Pick a match format and computer brain, then start with the toss. Every ball is announced, and real sounds play exactly with the action.",
     );
     return () => {
       mounted.current = false;
@@ -66,6 +77,32 @@ export default function HandCricket() {
   const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
   const pushLog = (entry: LogEntry) =>
     setLog((prev) => [{ ...entry, n: prev.length + 1 }, ...prev].slice(0, 25));
+
+  const limit = format === "overs12" ? OVERS_LIMIT : Infinity;
+  const ballCountText = (balls: number) => (format === "overs12" ? ` Ball ${balls} of ${OVERS_LIMIT}.` : "");
+
+  // Sneaky brain: studies the player's habits. Bowling → sometimes copies the
+  // player's favourite recent shot to sneak a wicket. Batting → dodges the
+  // player's favourite recent bowling number.
+  function aiPick(role: "bat" | "bowl"): number {
+    if (brain !== "sneaky") return fairPick();
+    if (role === "bowl" && myShots.current.length > 0 && Math.random() < 0.4) {
+      return myShots.current[Math.floor(Math.random() * myShots.current.length)];
+    }
+    if (role === "bat" && myBowls.current.length > 0 && Math.random() < 0.7) {
+      const counts = new Map<number, number>();
+      myBowls.current.forEach((b) => counts.set(b, (counts.get(b) ?? 0) + 1));
+      const fave = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      let n = fairPick();
+      let guard = 0;
+      while (n === fave && guard++ < 8) n = fairPick();
+      return n;
+    }
+    return fairPick();
+  }
+  function remember(list: React.MutableRefObject<number[]>, n: number) {
+    list.current = [...list.current.slice(-5), n];
+  }
 
   // ---------------------------- TOSS ----------------------------
   function chooseOddEven(choice: "odd" | "even") {
@@ -136,9 +173,14 @@ export default function HandCricket() {
     setBallMsg(phase === "batting" ? "🏏 The bowler is running in…" : "⚾ You run in to bowl…");
     await delay(500); // bowler's run-up; reveal lands WITH the sound
     if (!mounted.current) return;
-    const ai = fairPick();
-    if (phase === "batting") resolveMyShot(n, ai);
-    else resolveMyBowl(n, ai);
+    const ai = aiPick(phase === "batting" ? "bowl" : "bat");
+    if (phase === "batting") {
+      remember(myShots, n);
+      resolveMyShot(n, ai);
+    } else {
+      remember(myBowls, n);
+      resolveMyBowl(n, ai);
+    }
   }
 
   function resolveMyShot(you: number, ai: number) {
@@ -148,7 +190,7 @@ export default function HandCricket() {
     ballSounds(you, out);
     if (out) {
       setMyOut(true);
-      const text = `MATCH! Both played ${you} — you are OUT ball number ${balls}!`;
+      const text = `MATCH! Both played ${you} — you are OUT!${ballCountText(balls)}`;
       pushLog({ n: balls, you, ai, text, out: true });
       announce(`${text} Your innings ends on ${myRuns} runs.`);
       setBallMsg(`❌ ${text} Your innings: ${myRuns} runs.`);
@@ -156,19 +198,25 @@ export default function HandCricket() {
       return;
     }
     const runs = myRuns + you;
-    const fours = myFours + (you === 4 ? 1 : 0);
-    const sixes = mySixes + (you === 6 ? 1 : 0);
     setMyRuns(runs);
-    if (you === 4) setMyFours(fours);
-    if (you === 6) setMySixes(sixes);
+    if (you === 4) setMyFours((f) => f + 1);
+    if (you === 6) setMySixes((s) => s + 1);
     const flavor = you === 6 ? "MASSIVE SIX! 🎉" : you === 4 ? "FOUR! Cracking shot! 🎉" : `${you} run${you > 1 ? "s" : ""}.`;
     const chase = target !== null ? ` Need ${Math.max(0, target - runs)} more to win.` : "";
-    const text = `You played ${you}, computer bowled ${ai}. ${flavor} Total ${runs} from ${balls} balls.${chase}`;
+    const text = `You played ${you}, computer bowled ${ai}. ${flavor} Total ${runs} from ${balls} balls.${ballCountText(balls)}${chase}`;
     pushLog({ n: balls, you, ai, text, out: false });
     announce(text);
     setBallMsg(`🏏 ${flavor} Total: ${runs}.${chase}`);
     // Chase complete?
     if (target !== null && runs >= target) return finishMatch("you", `${runs} runs — target ${target} chased with ${balls} balls!`);
+    // Overs format: 12-ball innings ends even when not out
+    if (balls >= limit) {
+      const msg = `12 balls done — your innings closes on ${runs} runs ${out ? "" : "not out"}!`;
+      announce(msg);
+      setBallMsg(`⌛ ${msg}`);
+      endMyInnings(runs);
+      return;
+    }
     setBusy(false);
   }
 
@@ -179,35 +227,26 @@ export default function HandCricket() {
     if (out) {
       ballSounds(0, true);
       setAiOut(true);
-      const text = `You bowled ${you} and the computer also played ${ai} — MATCH! The computer is OUT ball number ${balls}!`;
+      const text = `You bowled ${you} and the computer also played ${ai} — MATCH! The computer is OUT!${ballCountText(balls)}`;
       pushLog({ n: balls, you, ai, text, out: true });
       announce(`${text} Computer made ${aiRuns} runs.`);
       setBallMsg(`💥 ${text} Computer: ${aiRuns} runs.`);
-      if (target === null) {
-        // AI batted first → it was all out → my chase begins
-        const t = aiRuns + 1;
-        setTarget(t);
-        const msg = `Computer all out for ${aiRuns}. You need ${t} to win. Your turn to bat — tap a number!`;
-        setPhase("batting");
-        setBallMsg(msg);
-        announce(msg);
-        setBusy(false);
-        return;
-      }
-      // AI was chasing and got out
-      if (aiRuns === target - 1) return finishMatch("draw", `both innings end on ${aiRuns} — a tie!`);
-      return finishMatch("you", `computer all out for ${aiRuns}, ${target - 1 - aiRuns} short of the target!`);
+      return endAiInnings(aiRuns);
     }
     ballSounds(ai, false);
     const runs = aiRuns + ai;
     setAiRuns(runs);
     const flavor = ai === 6 ? "Computer smashes a SIX! 😬" : ai === 4 ? "Computer finds a FOUR." : `Computer takes ${ai}.`;
     const chase = target !== null ? ` Computer needs ${Math.max(0, target - runs)} more.` : "";
-    const text = `You bowled ${you}, computer played ${ai}. ${flavor} Computer total ${runs} from ${balls} balls.${chase}`;
+    const text = `You bowled ${you}, computer played ${ai}. ${flavor} Computer total ${runs} from ${balls} balls.${ballCountText(balls)}${chase}`;
     pushLog({ n: balls, you, ai, text, out: false });
     announce(text);
     setBallMsg(`⚾ ${flavor} Computer: ${runs}.${chase}`);
     if (target !== null && runs >= target) return finishMatch("computer", `computer chased ${target} in ${balls} balls`);
+    if (balls >= limit) {
+      announce(`12 balls done — the computer's innings closes on ${runs} runs.`);
+      return endAiInnings(runs);
+    }
     setBusy(false);
   }
 
@@ -224,9 +263,26 @@ export default function HandCricket() {
       setBusy(false);
       return;
     }
-    // I was chasing and got out
+    // I was chasing and got out / ran out of balls
     if (runs === target - 1) return finishMatch("draw", `both innings finish on ${runs} — a tie!`);
-    finishMatch("computer", `you were bowled out for ${runs}, ${target - 1 - runs} runs short`);
+    finishMatch("computer", `your chase stopped at ${runs}, ${target - 1 - runs} runs short`);
+  }
+
+  function endAiInnings(runs: number) {
+    if (target === null) {
+      // AI batted first → my chase begins
+      const t = runs + 1;
+      setTarget(t);
+      const msg = `Computer finishes on ${runs}. You need ${t} to win. Your turn to bat — tap a number!`;
+      setPhase("batting");
+      setBallMsg(msg);
+      announce(msg);
+      setBusy(false);
+      return;
+    }
+    // AI was chasing and fell short
+    if (runs === target - 1) return finishMatch("draw", `both innings end on ${runs} — a tie!`);
+    return finishMatch("you", `computer finished on ${runs}, ${target - 1 - runs} short of the target!`);
   }
 
   // ---------------------------- MATCH END ----------------------------
@@ -253,7 +309,7 @@ export default function HandCricket() {
     // Record the player's innings (runs is the leaderboard metric)
     if (myRuns > 0 || myBalls > 0) {
       if (myRuns > best) setBest(myRuns);
-      save(myRuns, { balls: myBalls, fours: myFours, sixes: mySixes, result });
+      save(myRuns, { balls: myBalls, fours: myFours, sixes: mySixes, result, format, brain });
     }
   }
 
@@ -266,11 +322,29 @@ export default function HandCricket() {
     setTarget(null);
     setWinner(null);
     setLog([]);
+    myShots.current = [];
+    myBowls.current = [];
     setBallMsg("New match! Choose odd or even for the toss.");
     announce("New match. Choose odd or even for the toss.");
   }
 
+  function pickFormat(f: Format) {
+    sound.play("select");
+    setFormat(f);
+    announce(f === "wickets" ? "Quick match: one wicket each. Bat until you're out!" : "Overs match: twelve balls per innings. You're out early only on a match!");
+  }
+  function pickBrain(b: Brain) {
+    sound.play("select");
+    setBrain(b);
+    announce(b === "chill" ? "Chill computer: pure luck, relaxed game." : "Sneaky computer: it studies your habits and tries to outguess you. Good luck!");
+  }
+
   // ---------------------------- UI ----------------------------
+  const pill = (active: boolean) =>
+    `min-h-12 flex-1 rounded-xl border-2 px-3 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-yellow-400 ${
+      active ? "border-emerald-400 bg-emerald-600/30 text-emerald-100" : "border-slate-600 bg-slate-800/60 text-slate-300"
+    }`;
+
   const numberPad = (
     <div className="mt-4" role="group" aria-label="Numbers one to six">
       <div className="grid grid-cols-3 gap-3">
@@ -293,20 +367,38 @@ export default function HandCricket() {
     <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6" aria-label="Hand Cricket">
       <h2 className="text-xl font-bold text-emerald-300">🏏 Hand Cricket — You vs Computer</h2>
       <p className="mt-1 text-sm text-slate-400">
-        Pick 1–6. If your number matches the computer's, the batter is OUT! Sounds and TalkBack announce every ball.
+        Pick 1–6. If your number matches the computer's, the batter is OUT! Real sounds and TalkBack announce every ball.
       </p>
+
+      {/* Match setup */}
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div role="group" aria-label="Match format" aria-disabled={phase !== "toss-choice"}>
+          <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">Match format</div>
+          <div className="flex gap-2">
+            <button disabled={phase !== "toss-choice"} aria-pressed={format === "wickets"} onClick={() => pickFormat("wickets")} className={pill(format === "wickets")}>⚡ Quick · 1 wicket</button>
+            <button disabled={phase !== "toss-choice"} aria-pressed={format === "overs12"} onClick={() => pickFormat("overs12")} className={pill(format === "overs12")}>⏱️ 12-ball overs</button>
+          </div>
+        </div>
+        <div role="group" aria-label="Computer brain" aria-disabled={phase !== "toss-choice"}>
+          <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">Computer brain</div>
+          <div className="flex gap-2">
+            <button disabled={phase !== "toss-choice"} aria-pressed={brain === "chill"} onClick={() => pickBrain("chill")} className={pill(brain === "chill")}>😌 Chill</button>
+            <button disabled={phase !== "toss-choice"} aria-pressed={brain === "sneaky"} onClick={() => pickBrain("sneaky")} className={pill(brain === "sneaky")}>🧠 Sneaky</button>
+          </div>
+        </div>
+      </div>
 
       {/* Scoreboard */}
       <div className="mt-4 grid grid-cols-2 gap-3 text-center" role="status" aria-label="Scoreboard">
         <div className="rounded-2xl bg-slate-800/70 p-3">
           <div className="text-xs uppercase text-slate-400">You {target !== null && aiBattingFirst ? "(chasing)" : ""}</div>
           <div className="text-2xl font-black text-white">{myRuns}</div>
-          <div className="text-xs text-slate-400">{myBalls} balls • 4s {myFours} • 6s {mySixes}{myOut ? " • OUT" : ""}</div>
+          <div className="text-xs text-slate-400">{myBalls}{format === "overs12" ? `/12` : ""} balls • 4s {myFours} • 6s {mySixes}{myOut ? " • OUT" : ""}</div>
         </div>
         <div className="rounded-2xl bg-slate-800/70 p-3">
           <div className="text-xs uppercase text-slate-400">Computer</div>
           <div className="text-2xl font-black text-white">{aiRuns}</div>
-          <div className="text-xs text-slate-400">{aiBalls} balls{aiOut ? " • OUT" : ""}</div>
+          <div className="text-xs text-slate-400">{aiBalls}{format === "overs12" ? `/12` : ""} balls{aiOut ? " • OUT" : ""}</div>
         </div>
       </div>
       {target !== null && (
