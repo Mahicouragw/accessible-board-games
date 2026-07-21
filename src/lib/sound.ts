@@ -45,8 +45,8 @@ const SKEY = "arcade_sound_settings";
 const SOUND_FILES: Record<Sfx, string> = {
   click: "/sounds/click.wav",                                    // UI click
   select: "/sounds/select.wav",                                  // UI select
-  dice: "/sounds/realistic/dice-rolling.wav",                    // 🎲 shaker rattle + landing thud
-  move: "/sounds/realistic/token-wood-move.wav",                 // wooden token hop
+  dice: "/sounds/realistic/dice-roll-wood.flac",                // 🎲 REAL wooden dice rolling on a wooden table (OpenGameArt CC0)
+  move: "/sounds/realistic/piece-place-wobble.ogg",             // REAL board-game piece placed/wobbled (OpenGameArt CC0)
   capture: "/sounds/realistic/capture-real.wav",                 // pop + drop (real pop from web layered)
   pocket: "/sounds/realistic/carrom-pocket-real.wav",            // carrom coin pocketed (rattle-drop)
   ladder: "/sounds/realistic/ladder-climb-real.wav",             // 🪜 wooden steps + rope creak
@@ -55,15 +55,15 @@ const SOUND_FILES: Record<Sfx, string> = {
   win: "/sounds/realistic/win-fanfare-real.wav",                 // 🏆 brass fanfare cadence
   lose: "/sounds/realistic/lose-sad-real.wav",                   // sad descending wah-wah
   carrom_strike: "/sounds/realistic/carrom-strike-real.wav",     // striker snap + ring
-  snake_ladder_roll: "/sounds/realistic/dice-rolling.wav",
-  ludo_dice: "/sounds/realistic/dice-rolling.wav",
-  ludo_token: "/sounds/realistic/token-wood-move.wav",
+  snake_ladder_roll: "/sounds/realistic/dice-roll-wood.flac", // REAL wooden dice (OpenGameArt CC0)
+  ludo_dice: "/sounds/realistic/dice-roll-wood.flac",      // REAL wooden dice (OpenGameArt CC0)
+  ludo_token: "/sounds/realistic/piece-place-wobble.ogg",   // REAL piece placement (OpenGameArt CC0)
   background_music: "/sounds/music/hub-theme.wav",               // 🎵 default arcade tune
   cricket_bat: "/sounds/realistic/carrom-strike-real.wav",       // sharp crack (bat)
   cricket_boundary: "/sounds/realistic/crowd-win.ogg",           // 📣 crowd roar (Google Sound Library)
   cricket_wicket: "/sounds/realistic/cricket-wicket.ogg",        // wicket rattle
-  checkers_move: "/sounds/realistic/token-wood-move.wav",
-  chess_move: "/sounds/realistic/token-wood-move.wav",
+  checkers_move: "/sounds/realistic/piece-place-wobble.ogg",
+  chess_move: "/sounds/realistic/piece-place-wobble.ogg",
   card_shuffle: "/sounds/realistic/card-shuffle-real.wav",       // riffle shuffle
   coin_drop: "/sounds/realistic/carrom-pocket-real.wav",
   level_up: "/sounds/realistic/slide-whistle.ogg",               // ⬆️ rising slide whistle
