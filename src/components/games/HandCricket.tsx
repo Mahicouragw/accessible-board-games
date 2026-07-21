@@ -41,6 +41,9 @@ export default function HandCricket() {
   const [tossPick, setTossPick] = useState<"odd" | "even" | null>(null);
   const [aiBattingFirst, setAiBattingFirst] = useState(false);
 
+  const [wicketFormat, setWicketFormat] = useState<1 | 3 | 5>(1);
+  const [myWicketsLost, setMyWicketsLost] = useState(0);
+  const [aiWicketsLost, setAiWicketsLost] = useState(0);
   const [myRuns, setMyRuns] = useState(0);
   const [myBalls, setMyBalls] = useState(0);
   const [myFours, setMyFours] = useState(0);
@@ -189,12 +192,21 @@ export default function HandCricket() {
     setMyBalls(balls);
     ballSounds(you, out);
     if (out) {
-      setMyOut(true);
-      const text = `MATCH! Both played ${you} — you are OUT!${ballCountText(balls)}`;
+      const wkts = myWicketsLost + 1;
+      setMyWicketsLost(wkts);
+      const allOut = wkts >= wicketFormat;
+      const text = `MATCH! Both played ${you} — batter OUT! Wicket ${wkts} down${allOut ? "" : `, ${wicketFormat - wkts} left`}.${ballCountText(balls)}`;
       pushLog({ n: balls, you, ai, text, out: true });
-      announce(`${text} Your innings ends on ${myRuns} runs.`);
-      setBallMsg(`❌ ${text} Your innings: ${myRuns} runs.`);
-      endMyInnings(myRuns);
+      if (allOut) {
+        setMyOut(true);
+        announce(`${text} That was your last wicket — your innings ends on ${myRuns} runs.`);
+        setBallMsg(`❌ ${text} Your innings: ${myRuns}/${wkts}.`);
+        endMyInnings(myRuns);
+      } else {
+        announce(`${text} Next batter walks in. Score ${myRuns}/${wkts}.`);
+        setBallMsg(`❌ ${text} Next batter in — score ${myRuns}/${wkts}.`);
+        setBusy(false);
+      }
       return;
     }
     const runs = myRuns + you;
@@ -203,10 +215,11 @@ export default function HandCricket() {
     if (you === 6) setMySixes((s) => s + 1);
     const flavor = you === 6 ? "MASSIVE SIX! 🎉" : you === 4 ? "FOUR! Cracking shot! 🎉" : `${you} run${you > 1 ? "s" : ""}.`;
     const chase = target !== null ? ` Need ${Math.max(0, target - runs)} more to win.` : "";
+    const wicketTail = wicketFormat > 1 ? ` (${myWicketsLost} wicket${myWicketsLost === 1 ? "" : "s"} down)` : "";
     const text = `You played ${you}, computer bowled ${ai}. ${flavor} Total ${runs} from ${balls} balls.${ballCountText(balls)}${chase}`;
     pushLog({ n: balls, you, ai, text, out: false });
     announce(text);
-    setBallMsg(`🏏 ${flavor} Total: ${runs}.${chase}`);
+    setBallMsg(`🏏 ${flavor} Total: ${runs}${wicketTail}.${chase}`);
     // Chase complete?
     if (target !== null && runs >= target) return finishMatch("you", `${runs} runs — target ${target} chased with ${balls} balls!`);
     // Overs format: 12-ball innings ends even when not out
@@ -226,22 +239,32 @@ export default function HandCricket() {
     setAiBalls(balls);
     if (out) {
       ballSounds(0, true);
-      setAiOut(true);
-      const text = `You bowled ${you} and the computer also played ${ai} — MATCH! The computer is OUT!${ballCountText(balls)}`;
+      const wkts = aiWicketsLost + 1;
+      setAiWicketsLost(wkts);
+      const allOut = wkts >= wicketFormat;
+      const text = `You bowled ${you} and the computer also played ${ai} — MATCH! Computer batter OUT! Wicket ${wkts} down${allOut ? "" : `, ${wicketFormat - wkts} left`}.${ballCountText(balls)}`;
       pushLog({ n: balls, you, ai, text, out: true });
-      announce(`${text} Computer made ${aiRuns} runs.`);
-      setBallMsg(`💥 ${text} Computer: ${aiRuns} runs.`);
-      return endAiInnings(aiRuns);
+      if (allOut) {
+        setAiOut(true);
+        announce(`${text} The computer's last wicket falls on ${aiRuns} runs.`);
+        setBallMsg(`💥 ${text} Computer: ${aiRuns}/${wkts}.`);
+        return endAiInnings(aiRuns);
+      }
+      announce(`${text} New computer batter in. Score ${aiRuns}/${wkts}.`);
+      setBallMsg(`💥 ${text} Next computer batter in — score ${aiRuns}/${wkts}.`);
+      setBusy(false);
+      return;
     }
     ballSounds(ai, false);
     const runs = aiRuns + ai;
     setAiRuns(runs);
     const flavor = ai === 6 ? "Computer smashes a SIX! 😬" : ai === 4 ? "Computer finds a FOUR." : `Computer takes ${ai}.`;
     const chase = target !== null ? ` Computer needs ${Math.max(0, target - runs)} more.` : "";
+    const wicketTail = wicketFormat > 1 ? ` (${aiWicketsLost} wicket${aiWicketsLost === 1 ? "" : "s"} down)` : "";
     const text = `You bowled ${you}, computer played ${ai}. ${flavor} Computer total ${runs} from ${balls} balls.${ballCountText(balls)}${chase}`;
     pushLog({ n: balls, you, ai, text, out: false });
     announce(text);
-    setBallMsg(`⚾ ${flavor} Computer: ${runs}.${chase}`);
+    setBallMsg(`⚾ ${flavor} Computer: ${runs}${wicketTail}.${chase}`);
     if (target !== null && runs >= target) return finishMatch("computer", `computer chased ${target} in ${balls} balls`);
     if (balls >= limit) {
       announce(`12 balls done — the computer's innings closes on ${runs} runs.`);
@@ -309,7 +332,7 @@ export default function HandCricket() {
     // Record the player's innings (runs is the leaderboard metric)
     if (myRuns > 0 || myBalls > 0) {
       if (myRuns > best) setBest(myRuns);
-      save(myRuns, { balls: myBalls, fours: myFours, sixes: mySixes, result, format, brain });
+      save(myRuns, { balls: myBalls, fours: myFours, sixes: mySixes, result, format, brain, wickets: wicketFormat, wicketsLost: myWicketsLost });
     }
   }
 
@@ -319,6 +342,7 @@ export default function HandCricket() {
     setTossPick(null);
     setMyRuns(0); setMyBalls(0); setMyFours(0); setMySixes(0); setMyOut(false);
     setAiRuns(0); setAiBalls(0); setAiOut(false);
+    setMyWicketsLost(0); setAiWicketsLost(0);
     setTarget(null);
     setWinner(null);
     setLog([]);
@@ -371,12 +395,22 @@ export default function HandCricket() {
       </p>
 
       {/* Match setup */}
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <div role="group" aria-label="Match format" aria-disabled={phase !== "toss-choice"}>
           <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">Match format</div>
           <div className="flex gap-2">
             <button disabled={phase !== "toss-choice"} aria-pressed={format === "wickets"} onClick={() => pickFormat("wickets")} className={pill(format === "wickets")}>⚡ Quick · 1 wicket</button>
             <button disabled={phase !== "toss-choice"} aria-pressed={format === "overs12"} onClick={() => pickFormat("overs12")} className={pill(format === "overs12")}>⏱️ 12-ball overs</button>
+          </div>
+        </div>
+        <div role="group" aria-label="Wickets per side" aria-disabled={phase !== "toss-choice"}>
+          <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">Wickets</div>
+          <div className="flex gap-2">
+            {([1, 3, 5] as const).map((wk) => (
+              <button key={wk} disabled={phase !== "toss-choice"} aria-pressed={wicketFormat === wk}
+                onClick={() => { sound.play("select"); setWicketFormat(wk); announce(`${wk} wicket${wk > 1 ? "s" : ""} per side. ${wk === 1 ? "One out ends the innings!" : `${wk} outs to end an innings.`}`); }}
+                className={pill(wicketFormat === wk)}>🏏 {wk}</button>
+            ))}
           </div>
         </div>
         <div role="group" aria-label="Computer brain" aria-disabled={phase !== "toss-choice"}>
@@ -393,12 +427,12 @@ export default function HandCricket() {
         <div className="rounded-2xl bg-slate-800/70 p-3">
           <div className="text-xs uppercase text-slate-400">You {target !== null && aiBattingFirst ? "(chasing)" : ""}</div>
           <div className="text-2xl font-black text-white">{myRuns}</div>
-          <div className="text-xs text-slate-400">{myBalls}{format === "overs12" ? `/12` : ""} balls • 4s {myFours} • 6s {mySixes}{myOut ? " • OUT" : ""}</div>
+          <div className="text-xs text-slate-400">{myBalls}{format === "overs12" ? `/12` : ""} balls • {myWicketsLost}/{wicketFormat} wkts{myOut ? " • ALL OUT" : ""}</div>
         </div>
         <div className="rounded-2xl bg-slate-800/70 p-3">
           <div className="text-xs uppercase text-slate-400">Computer</div>
           <div className="text-2xl font-black text-white">{aiRuns}</div>
-          <div className="text-xs text-slate-400">{aiBalls}{format === "overs12" ? `/12` : ""} balls{aiOut ? " • OUT" : ""}</div>
+          <div className="text-xs text-slate-400">{aiBalls}{format === "overs12" ? `/12` : ""} balls • {aiWicketsLost}/{wicketFormat} wkts{aiOut ? " • ALL OUT" : ""}</div>
         </div>
       </div>
       {target !== null && (
