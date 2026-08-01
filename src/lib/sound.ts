@@ -385,6 +385,83 @@ class SoundEngine {
   }
 }
 
+  // ---------- TTS ducking & unified announce helper ----------
+  // Added in v1.x: these helpers let the app use speechSynthesis without
+  // it colliding with the music track. When speak() is called, the music
+  // is auto-paused and remembered; when speech ends, music resumes from
+  // where it left off. announceWithAudio() plays an SFX + speaks a line +
+  // ducks the music, all in one call. No-op on browsers without
+  // speechSynthesis (e.g. some iOS WebViews).
+
+  private _wasMusicPlayingBeforeTts = false;
+  private _ttsBusy = false;
+  private _ttsQueue: Array<() => void> = [];
+
+  /** Speak a line with automatic music ducking. */
+  speak(text: string, opts: { rate?: number; pitch?: number; volume?: number } = {}) {
+    if (typeof window === "undefined" || typeof window.speechSynthesis === "undefined") return;
+    if (!this.settings.voice) return; // user has voice prompts off
+    const synth = window.speechSynthesis;
+    const perform = () => {
+      this._ttsBusy = true;
+      // Duck: pause music if it's playing, remember so we can resume.
+      try {
+        const m = (this as any).musicAudioElement as HTMLAudioElement | undefined;
+        this._wasMusicPlayingBeforeTts = !!(m && !m.paused && !m.ended);
+        if (this._wasMusicPlayingBeforeTts) m?.pause();
+      } catch {}
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = opts.rate ?? 0.95;
+      u.pitch = opts.pitch ?? 1.0;
+      u.volume = opts.volume ?? 1.0;
+      const done = () => {
+        this._ttsBusy = false;
+        try {
+          const m = (this as any).musicAudioElement as HTMLAudioElement | undefined;
+          if (this._wasMusicPlayingBeforeTts && this.settings.music && m) m.play().catch(() => {});
+        } catch {}
+        this._wasMusicPlayingBeforeTts = false;
+        const next = this._ttsQueue.shift();
+        if (next) next();
+      };
+      u.onend = done;
+      u.onerror = done;
+      try { synth.cancel(); } catch {}
+      synth.speak(u);
+    };
+    if (this._ttsBusy) { this._ttsQueue.push(perform); return; }
+    perform();
+  }
+
+  /** Cancel any ongoing or queued TTS. */
+  cancelSpeech() {
+    if (typeof window === "undefined" || typeof window.speechSynthesis === "undefined") return;
+    try { window.speechSynthesis.cancel(); } catch {}
+    this._ttsQueue = [];
+    this._ttsBusy = false;
+  }
+
+  /** True if TTS is currently speaking or has queued lines. */
+  get isSpeaking(): boolean {
+    return this._ttsBusy || this._ttsQueue.length > 0;
+  }
+
+  /**
+   * Play an SFX, then speak a line, all while ducking the music.
+   *   sound.announceWithAudio("match", "Match found!");
+   * is equivalent to:
+   *   sound.play("match");
+   *   setTimeout(() => sound.speak("Match found!"), 80);
+   * The 80ms gap lets the SFX start cleanly before TTS begins.
+   */
+  announceWithAudio(sfxName: string | null, text: string | null) {
+    if (sfxName) this.play(sfxName);
+    if (text) {
+      window.setTimeout(() => this.speak(text), 80);
+    }
+  }
+
+
 if (typeof window !== "undefined") {
   window.addEventListener("click", (e) => {
     const target = e.target as HTMLElement;
