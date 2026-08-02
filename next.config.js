@@ -3,11 +3,12 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // v1.9.1: type errors and lint errors are real defects — fail the build.
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   experimental: {
     missingSuspenseWithCSRBailout: false,

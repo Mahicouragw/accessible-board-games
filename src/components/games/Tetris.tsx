@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { sound } from "@/lib/sound";
+import { announce } from "@/lib/a11y";
 
 const ROWS = 15;
 const COLS = 10;
@@ -31,6 +32,7 @@ export default function Tetris() {
     // Check game over
     if (board[0].some(cell => cell !== null) || board[1].some(cell => cell !== null)) {
       setGameOver(true);
+      announce("Tetris game over. Final score " + score + ".");
       sound.play("lose");
     }
   }, [board]);
@@ -75,6 +77,7 @@ export default function Tetris() {
 
     if (cleared > 0) {
       sound.play("level_up");
+      announce("Line cleared. Level up!");
       setScore(s => s + cleared * 100);
       setLines(l => l + cleared);
     } else {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { sound } from "@/lib/sound";
+import { announce } from "@/lib/a11y";
 
 export default function FootballPenalty() {
   const [score, setScore] = useState({ goals: 0, misses: 0, streak: 0, best: 0 });
@@ -26,6 +27,7 @@ export default function FootballPenalty() {
         res = "miss";
         setScore(s => ({ ...s, misses: s.misses + 1, streak: 0 }));
         sound.play("lose");
+      announce("Miss! The shot is wide.");
       } else if (pos === keeper) {
         res = "save";
         setScore(s => ({ ...s, misses: s.misses + 1, streak: 0 }));
@@ -37,6 +39,7 @@ export default function FootballPenalty() {
           return { goals: s.goals + 1, misses: s.misses, streak: newStreak, best: Math.max(s.best, newStreak) };
         });
         sound.play("win");
+      announce("Goal! Shot on target!");
       }
       setResult(res);
       setTimeout(() => {

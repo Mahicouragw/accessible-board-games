@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { sound } from "@/lib/sound";
+import { announce } from "@/lib/a11y";
 
 type Domino = { a: number; b: number; id: number };
 type PlayedDomino = Domino & { side: "left" | "right"; rotated: boolean };
@@ -38,6 +39,7 @@ export default function Dominoes() {
   const playDomino = (domino: Domino, side: "left" | "right") => {
     if (!canPlay(domino, side)) {
       sound.play("lose");
+      announce("No move available. You pass the turn.");
       return;
     }
     const isLeft = side === "left";
@@ -54,6 +56,7 @@ export default function Dominoes() {
     
     if (hand.length === 1) {
       sound.play("win");
+      announce("Domino! You win the round!");
       setWins(w => w + 1);
       setTimeout(() => {
         alert(`You win! Domino! Score: ${score + domino.a + domino.b}`);

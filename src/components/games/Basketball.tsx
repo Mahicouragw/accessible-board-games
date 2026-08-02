@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { sound } from "@/lib/sound";
+import { announce } from "@/lib/a11y";
 
 export default function Basketball() {
   const [score, setScore] = useState(0);
@@ -21,6 +22,7 @@ export default function Basketball() {
     
     if (chance > 0.55) {
       setScore(s => s + 1);
+      announce("Goal! Score " + (score + 1) + ".");
       setStreak(s => {
         const ns = s + 1;
         setBest(b => Math.max(b, ns));
@@ -28,10 +30,12 @@ export default function Basketball() {
       });
       setResult("score");
       sound.play("win");
+      announce("Basketball time up. You win!");
     } else {
       setStreak(0);
       setResult("miss");
       sound.play("lose");
+      announce("Basketball time up. Final score " + score + ".");
     }
     setTimeout(() => setResult(null), 1000);
   };

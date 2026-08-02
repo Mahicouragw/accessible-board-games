@@ -91,12 +91,13 @@ export default function Game2048() {
         if (rotate) work = transpose(work);
         if (equal(work, g)) return g;
         const withNew = addRandom(work);
+        if (gained > 0) announce("Merged tiles. Score " + (score + gained) + ".");
         setScore((s) => {
           const ns = s + gained;
           setBest((b) => Math.max(b, ns));
           return ns;
         });
-        if (!canMove(withNew)) setOver(true);
+        if (!canMove(withNew)) { setOver(true); announce("No more moves. Game over!"); } // game over announced below via setOver effect
         return withNew;
       });
     },

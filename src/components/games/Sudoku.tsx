@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { sound } from "@/lib/sound";
+import { announce } from "@/lib/a11y";
 
 type Board = (number | null)[][];
 const SIZE = 9;
@@ -65,12 +66,14 @@ export default function Sudoku() {
     if (solution[r][c] !== num) {
       setErrors(e => e + 1);
       sound.play("lose");
+      announce("That number is not correct. Try again.");
     } else {
       sound.play("select");
       // Check win
       const isComplete = newBoard.every((row, ri) => row.every((cell, ci) => cell !== null && cell === solution[ri][ci]));
       if (isComplete) {
         sound.play("win");
+        announce("Sudoku complete. Congratulations, you solved the puzzle!");
         setWins(w => w + 1);
         setTimeout(() => alert(`Sudoku Solved! Errors: ${errors}`), 200);
       }

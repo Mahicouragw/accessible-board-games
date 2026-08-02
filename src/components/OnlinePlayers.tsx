@@ -38,7 +38,10 @@ export default function OnlinePlayers() {
       }
     };
     load();
-    const iv = setInterval(load, 6000);
+    const iv = setInterval(() => {
+      if (document.hidden) return; // battery: no polling in background tabs
+      load();
+    }, 6000);
     return () => {
       active = false;
       clearInterval(iv);

@@ -84,6 +84,7 @@ export default function Snake() {
         const newSnake = [head, ...prev];
         if (ate) {
           sound.play("coin_drop");
+          announce("Food eaten. Score increases by 10.");
           setScore((s) => {
             const ns = s + 10;
             setBest((b) => Math.max(b, ns));

@@ -37,7 +37,7 @@ export type Sfx =
   | "basketball_bounce"
   | "football_kick";
 
-type Settings = { sfx: boolean; music: boolean; volume: number };
+type Settings = { sfx: boolean; music: boolean; volume: number; voice: boolean };
 
 const SKEY = "arcade_sound_settings";
 
@@ -55,17 +55,17 @@ const SOUND_FILES: Record<Sfx, string> = {
   win: "/sounds/realistic/win-fanfare-real.wav",                 // 🏆 brass fanfare cadence
   lose: "/sounds/realistic/lose-sad-real.wav",                   // sad descending wah-wah
   carrom_strike: "/sounds/realistic/carrom-strike-real.wav",     // striker snap + ring
-  snake_ladder_roll: "/sounds/realistic/dice-roll-wood.flac", // REAL wooden dice (OpenGameArt CC0)
-  ludo_dice: "/sounds/realistic/dice-roll-wood.flac",      // REAL wooden dice (OpenGameArt CC0)
-  ludo_token: "/sounds/realistic/piece-place-wobble.ogg",   // REAL piece placement (OpenGameArt CC0)
+  snake_ladder_roll: "/sounds/realistic/dice-roll-wood-long.flac", // 🎲 longer wooden dice roll (distinct from Ludo)
+  ludo_dice: "/sounds/realistic/dice-rolling.wav",               // 🎲 Ludo dice — its own unique rattle
+  ludo_token: "/sounds/realistic/token-wood-move.wav",           // 🪵 wooden token sliding (unique)
   background_music: "/sounds/music/hub-theme.wav",               // 🎵 default arcade tune
   cricket_bat: "/sounds/realistic/carrom-strike-real.wav",       // sharp crack (bat)
   cricket_boundary: "/sounds/realistic/crowd-win.ogg",           // 📣 crowd roar (Google Sound Library)
   cricket_wicket: "/sounds/realistic/cricket-wicket.ogg",        // wicket rattle
-  checkers_move: "/sounds/realistic/piece-place-wobble.ogg",
-  chess_move: "/sounds/realistic/piece-place-wobble.ogg",
+  checkers_move: "/sounds/realistic/token-wood-move.wav",        // 🪵 wooden piece slide
+  chess_move: "/sounds/realistic/token-wood-move.wav",           // 🪵 wooden piece slide
   card_shuffle: "/sounds/realistic/card-shuffle-real.wav",       // riffle shuffle
-  coin_drop: "/sounds/realistic/carrom-pocket-real.wav",
+  coin_drop: "/sounds/coin-drop.wav",                            // 🪙 distinct coin drop
   level_up: "/sounds/realistic/slide-whistle.ogg",               // ⬆️ rising slide whistle
   bounce: "/sounds/bounce.wav",
   button: "/sounds/realistic/ui-tick.ogg",                       // tick (Google Sound Library)
@@ -89,7 +89,7 @@ class SoundEngine {
   private musicBuffer: AudioBuffer | null = null;
   private theme: string = "hub";
   private playingUrl: string = "";
-  settings: Settings = { sfx: true, music: false, volume: 0.7 };
+  settings: Settings = { sfx: true, music: false, volume: 0.7, voice: true };
   private listeners = new Set<() => void>();
   private audioCache = new Map<string, HTMLAudioElement>();
   private bufferCache = new Map<string, AudioBuffer>();
@@ -135,10 +135,13 @@ class SoundEngine {
     return this.ensure();
   }
 
+  private failedUrls = new Set<string>();
+
   private async loadBuffer(url: string): Promise<AudioBuffer | null> {
     const ctx = this.ensure();
     if (!ctx) return null;
     if (this.bufferCache.has(url)) return this.bufferCache.get(url)!;
+    if (this.failedUrls.has(url)) return null;
     try {
       const res = await fetch(url);
       if (!res.ok) throw new Error("fetch failed");
@@ -147,24 +150,22 @@ class SoundEngine {
       this.bufferCache.set(url, audioBuffer);
       return audioBuffer;
     } catch {
+      this.failedUrls.add(url); // don't hammer 404s on every play
       return null;
     }
   }
 
-  private tone(freq: number, dur: number, type: OscillatorType = "sine", gain = 0.2, delay = 0) {
+  /** Zero-latency WebAudio playback of a decoded buffer (no element churn). */
+  private playBuffer(buffer: AudioBuffer, gainScale = 0.8) {
     const ctx = this.ensure();
     if (!ctx) return;
-    const t = ctx.currentTime + delay;
-    const osc = ctx.createOscillator();
+    if (ctx.state === "suspended") void ctx.resume();
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
     const g = ctx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, t);
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(gain, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    osc.connect(g).connect(ctx.destination);
-    osc.start(t);
-    osc.stop(t + dur + 0.02);
+    g.gain.value = this.settings.volume * gainScale;
+    src.connect(g).connect(ctx.destination);
+    src.start(0);
   }
 
   async play(name: Sfx) {
@@ -179,107 +180,42 @@ class SoundEngine {
       /* rewards are best-effort; sound must never break */
     }
 
-    // Try realistic file from public/sounds/ first, then API route fallback for Vercel (when public/sounds 404)
+    // v1.9.1: WebAudio buffer path first (sub-10ms start, zero element churn),
+    // then the API route fallback for Vercel (when public/sounds 404s), then
+    // HTMLAudio, then synthesized fallback. An effect is never dropped silently.
     const file = SOUND_FILES[name];
     const apiFile = `/api/sounds/${file.split('/').pop()}`;
-    
-    const tryUrls = [file, apiFile, file.replace('/sounds/', '/sounds/realistic/'), apiFile.replace('/api/sounds/', '/api/sounds/realistic/')];
-    
-    for (const url of tryUrls) {
-      try {
-        if (typeof window !== "undefined") {
+    const tryUrls = [file, apiFile];
+
+    const ctx = this.ensure();
+    if (ctx) {
+      for (const url of tryUrls) {
+        const buffer = await this.loadBuffer(url);
+        if (buffer) {
+          this.playBuffer(buffer);
+          return;
+        }
+      }
+    } else {
+      for (const url of tryUrls) {
+        try {
           const audio = new Audio(url);
           audio.volume = this.settings.volume * 0.8;
           audio.preload = "auto";
           const playPromise = audio.play();
           if (playPromise) {
             await playPromise;
-            return; // Success!
+            return;
           }
+        } catch {
+          continue;
         }
-      } catch {
-        // Try next URL
-        continue;
       }
     }
-    
-    // Fallback synthesis
-    this.playSynthesis(name);
-  }
 
-  private playSynthesis(name: Sfx) {
-    // Fallback realistic synthesis if file fails - no old music, only realistic
-    switch (name) {
-      case "click":
-      case "button":
-        this.tone(800, 0.06, "sine", 0.25);
-        break;
-      case "select":
-        this.tone(660, 0.09, "sine", 0.18);
-        this.tone(880, 0.09, "sine", 0.12, 0.04);
-        break;
-      case "move":
-      case "ludo_token":
-      case "carrom_strike":
-      case "checkers_move":
-      case "chess_move":
-        this.tone(180, 0.08, "sine", 0.3);
-        this.tone(350, 0.06, "triangle", 0.15, 0.01);
-        break;
-      case "turn":
-        this.tone(520, 0.1, "triangle", 0.15);
-        this.tone(680, 0.1, "triangle", 0.12, 0.06);
-        break;
-      case "capture":
-      case "pocket":
-      case "coin_drop":
-        this.tone(200, 0.12, "sawtooth", 0.25);
-        this.tone(120, 0.18, "square", 0.2, 0.03);
-        break;
-      case "dice":
-      case "ludo_dice":
-      case "snake_ladder_roll":
-      case "bounce":
-      case "basketball_bounce":
-      case "football_kick":
-        for (let i = 0; i < 6; i++) {
-          this.tone(200 + Math.random() * 600, 0.06, "square", 0.12, i * 0.06);
-        }
-        this.tone(80, 0.15, "sine", 0.3, 0.4);
-        break;
-      case "ladder":
-      case "level_up":
-        [261, 329, 392, 523, 659, 783, 1046].forEach((n, i) =>
-          this.tone(n, 0.18, "triangle", 0.22, i * 0.1)
-        );
-        break;
-      case "snake":
-        [800, 650, 520, 400, 300].forEach((n, i) =>
-          this.tone(n, 0.15, "sawtooth", 0.18, i * 0.09)
-        );
-        break;
-      case "win":
-      case "cricket_boundary":
-        [261, 329, 392, 523, 659, 783, 1046].forEach((n, i) =>
-          this.tone(n, 0.25, "triangle", 0.28, i * 0.12)
-        );
-        break;
-      case "lose":
-      case "cricket_wicket":
-        [392, 349, 329, 261].forEach((n, i) =>
-          this.tone(n, 0.35, "sine", 0.22, i * 0.18)
-        );
-        break;
-      case "cricket_bat":
-        this.tone(250, 0.08, "sine", 0.4);
-        this.tone(500, 0.05, "triangle", 0.2, 0.02);
-        break;
-      case "card_shuffle":
-        for (let i = 0; i < 5; i++) {
-          this.tone(400 + i * 100, 0.04, "square", 0.15, i * 0.03);
-        }
-        break;
-    }
+    // v1.9.2 — no synthesized sounds: if the real file is unavailable we stay
+    // silent and log, so a wrong-time or fake sound never plays.
+    console.warn(`sound unavailable: ${name} (${file})`);
   }
 
   // ---------------- per-game background music ----------------
@@ -383,15 +319,13 @@ class SoundEngine {
   playClick() {
     this.play("click");
   }
-}
 
   // ---------- TTS ducking & unified announce helper ----------
-  // Added in v1.x: these helpers let the app use speechSynthesis without
-  // it colliding with the music track. When speak() is called, the music
-  // is auto-paused and remembered; when speech ends, music resumes from
-  // where it left off. announceWithAudio() plays an SFX + speaks a line +
-  // ducks the music, all in one call. No-op on browsers without
-  // speechSynthesis (e.g. some iOS WebViews).
+  // These helpers let the app use speechSynthesis without it colliding with
+  // the music track. When speak() is called, the music is auto-paused and
+  // remembered; when speech ends, music resumes from where it left off.
+  // announceWithAudio() plays an SFX + speaks a line + ducks the music, all in
+  // one call. No-op on browsers without speechSynthesis (e.g. some iOS WebViews).
 
   private _wasMusicPlayingBeforeTts = false;
   private _ttsBusy = false;
@@ -454,13 +388,13 @@ class SoundEngine {
    *   setTimeout(() => sound.speak("Match found!"), 80);
    * The 80ms gap lets the SFX start cleanly before TTS begins.
    */
-  announceWithAudio(sfxName: string | null, text: string | null) {
+  announceWithAudio(sfxName: Sfx | null, text: string | null) {
     if (sfxName) this.play(sfxName);
     if (text) {
       window.setTimeout(() => this.speak(text), 80);
     }
   }
-
+}
 
 if (typeof window !== "undefined") {
   window.addEventListener("click", (e) => {

@@ -73,7 +73,10 @@ export default function InviteWatcher() {
       }
     };
     poll();
-    const iv = setInterval(poll, 4000);
+    const iv = setInterval(() => {
+      if (document.hidden) return; // battery: no polling in background tabs
+      poll();
+    }, 4000);
     return () => {
       active = false;
       clearInterval(iv);

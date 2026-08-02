@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { sound } from "@/lib/sound";
 import { useSaveScore } from "@/lib/useSaveScore";
+import { announce } from "@/lib/a11y";
 
 type Piece = { color: "red" | "black"; king: boolean } | null;
 type Board = Piece[][];
@@ -76,6 +77,7 @@ export default function Checkers() {
           const midC = (c + sc) / 2;
           newBoard[midR][midC] = null;
           sound.play("capture");
+          announce("Capture! You take a piece.");
         } else {
           sound.play("checkers_move");
         }
@@ -95,6 +97,7 @@ export default function Checkers() {
         const opponentPieces = newBoard.flat().filter(p => p?.color === opponent).length;
         if (opponentPieces === 0) {
           sound.play("win");
+          announce("Checkers over. You win the game!");
           setWins(w => w + 1);
           save(wins + 1);
           setTimeout(() => {

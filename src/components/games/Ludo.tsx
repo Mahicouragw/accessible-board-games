@@ -253,7 +253,8 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
     return () => {
       cancelled.current = true;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turn]);
 
   function reset() {
     cancelled.current = false;

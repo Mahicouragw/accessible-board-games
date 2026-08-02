@@ -1,6 +1,6 @@
 {
   "name": "accessible-board-games",
-  "version": "1.9.0",
+  "version": "1.9.2",
   "description": "Accessible Board Games - Play Ludo, Carrom, Snake Ladder, Chess, Memory, 2048 with full accessibility, multiplayer, rooms, chat, voice, cloud saves",
   "private": false,
   "scripts": {
@@ -19,7 +19,8 @@
     "cap:copy": "npx cap copy",
     "cap:sync": "npx cap sync",
     "cap:open": "npx cap open android",
-    "apk:build": "npm run build && npx cap copy && cd android && ./gradlew assembleDebug && echo APK at android/app/build/outputs/apk/debug/app-debug.apk"
+    "apk:build": "npm run build && echo 'APK pipeline: the Android app ships via the flutter_apk WebView wrapper (see flutter_apk/README.md); web build is Vercel-ready'",
+    "apk:web": "npm run build"
   },
   "keywords": [
     "accessible",

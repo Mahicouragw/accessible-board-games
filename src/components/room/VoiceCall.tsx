@@ -137,6 +137,7 @@ export default function VoiceCall({
       announce("Voice call started. You are connected.");
       await callHigherPeers();
       pollRef.current = setInterval(async () => {
+        if (document.hidden) return; // battery: no signal polling in background tabs
         try {
           const res = await fetch(
             `/api/rooms/${roomId}/signals?code=${code}&after=${lastSignalId.current}`,

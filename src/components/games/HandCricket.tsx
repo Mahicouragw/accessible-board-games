@@ -391,7 +391,7 @@ export default function HandCricket() {
     <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6" aria-label="Hand Cricket">
       <h2 className="text-xl font-bold text-emerald-300">🏏 Hand Cricket — You vs Computer</h2>
       <p className="mt-1 text-sm text-slate-400">
-        Pick 1–6. If your number matches the computer's, the batter is OUT! Real sounds and TalkBack announce every ball.
+        Pick 1–6. If your number matches the computer&apos;s, the batter is OUT! Real sounds and TalkBack announce every ball.
       </p>
 
       {/* Match setup */}

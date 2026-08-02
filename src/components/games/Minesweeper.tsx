@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { sound } from "@/lib/sound";
+import { announce } from "@/lib/a11y";
 
 const ROWS = 10;
 const COLS = 10;
@@ -50,6 +51,7 @@ export default function Minesweeper() {
       setBoard(newBoard);
       setGameOver("lose");
       sound.play("lose");
+      announce("Mine exploded. Game over!");
       sound.play("capture");
       return;
     }
@@ -73,6 +75,7 @@ export default function Minesweeper() {
     const revealedCount = newBoard.flat().filter(cell => cell.revealed).length;
     if (revealedCount === ROWS * COLS - MINES) {
       setGameOver("win");
+      announce("All safe tiles revealed. You win Minesweeper!");
       sound.play("win");
       setWins(w => w + 1);
     }

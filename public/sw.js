@@ -2,8 +2,8 @@
 // This app is highly dynamic (live rooms, chat, matches), so we use a
 // network-first strategy and only cache the shell for offline fallback.
 
-const CACHE = "playverse-v1";
-const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
+const CACHE = "abg-v1.9.2";
+const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/icon-maskable-512.png", "/icons/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

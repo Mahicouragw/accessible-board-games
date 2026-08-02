@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { sound } from "@/lib/sound";
 import { useSaveScore } from "@/lib/useSaveScore";
+import { announce } from "@/lib/a11y";
 
 type MonsterType = "Goblin" | "Goblin Mage" | "Arch Magician" | "Goblin King" | "Shadow Beast" | "Dragon";
 
@@ -178,6 +179,7 @@ export default function MonsterBattle() {
         const totalXp = updatedMonsters.reduce((acc, m) => acc + m.xpReward, 0);
         addLog(`🏆 Victory! All ${encounterSize} monsters defeated! Total XP: ${totalXp}`, "system");
         sound.play("win");
+      announce("Monster defeated. You win the battle!");
         setWins(w => w + 1);
         save(wins + 1);
         return;
@@ -219,6 +221,7 @@ export default function MonsterBattle() {
                 setGameState("defeat");
                 addLog(`💀 You have been defeated! Game Over!`, "system");
                 sound.play("lose");
+      announce("Your monster fainted. Battle lost.");
                 return prev;
               }
               return prev;
