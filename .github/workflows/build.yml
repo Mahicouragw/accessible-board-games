@@ -1,0 +1,52 @@
+name: Web Build + Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    tags: ['android-*']
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci || npm install --no-audit --no-fund
+      - name: Build (type + lint checks enforced)
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: accessible-board-games-web
+          path: .next/
+
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Build Flutter wrapper APK (com.mahicouragw.board_games)
+        working-directory: flutter_apk
+        run: |
+          flutter pub get
+          flutter build apk --debug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AccessibleBoardGames.apk
+          path: flutter_apk/build/app/outputs/flutter-apk/*.apk
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/android-')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: flutter_apk/build/app/outputs/flutter-apk/*.apk
+          generate_release_notes: true
