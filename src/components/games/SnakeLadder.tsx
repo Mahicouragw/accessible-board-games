@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sound } from "@/lib/sound";
 import { announce } from "@/lib/a11y";
+import { stepMove } from "@/lib/stepMove";
 import { useSaveScore } from "@/lib/useSaveScore";
 
 // bottom -> top mappings
@@ -48,29 +49,32 @@ export default function SnakeLadder() {
         announce(`${names[player]} rolled ${roll}, too high, staying on ${start}`);
         return start;
       }
-      // walk step by step — per-tile sound + TalkBack announcement.
-      // Spec: roll N → play N movement sounds (one per tile) + announce each.
-      for (let n = start + 1; n <= target; n++) {
-        setPos((p) => (player === 0 ? [n, p[1]] : [p[0], n]));
-        sound.play("move");
-        announce(`${names[player]} moved to square ${n}`);
-        await delay(280);
-      }
+      // v1.9.3 — strict per-tile sync via stepMove: roll N → EXACTLY N taps,
+      // each tap finishes BEFORE its square announcement (no overlap, no extras).
+      await stepMove({
+        steps: roll,
+        onStep: (n) => setPos((p) => (player === 0 ? [n, p[1]] : [p[0], n])),
+        announceStep: (n) => announce(`${names[player]} moved to square ${n}`),
+        tap: () => sound.playAndWait("move", 800),
+      });
       // ladder or snake
       if (LADDERS[target]) {
         const to = LADDERS[target];
-        sound.play("ladder");
+        await sound.playAndWait("ladder", 2500);
         announce(`${names[player]} climbed a ladder from ${target} to ${to}!`);
         setMsg(`${names[player]} climbed a ladder to ${to}! 🪜`);
-        await delay(300);
+        await delay(120);
         setPos((p) => (player === 0 ? [to, p[1]] : [p[0], to]));
         target = to;
       } else if (SNAKES[target]) {
         const to = SNAKES[target];
-        sound.play("snake");
-        announce(`${names[player]} hit a snake from ${target} down to ${to}!`);
+        await sound.playAndWait("snake_bite", 900);
+        announce(`${names[player]} was bitten by a snake on square ${target}!`);
+        await delay(200);
+        await sound.playAndWait("snake", 1600);
+        announce(`${names[player]} slid down to square ${to}!`);
         setMsg(`${names[player]} got bitten by a snake down to ${to}! 🐍`);
-        await delay(300);
+        await delay(120);
         setPos((p) => (player === 0 ? [to, p[1]] : [p[0], to]));
         target = to;
       }
@@ -86,8 +90,7 @@ export default function SnakeLadder() {
       setRolling(true);
       // Compute the roll first so we can announce it in sync with the dice animation.
       const roll = 1 + Math.floor(Math.random() * 6);
-      sound.play("dice");
-      await delay(600);
+      await sound.playAndWait("dice", 3000);
       setDice(roll);
       setRolling(false);
       announce(`${names[player]} rolled ${roll}`);
@@ -96,7 +99,7 @@ export default function SnakeLadder() {
       if (landed >= 100) {
         setWinner(player);
         if (player === 0) {
-          sound.play("win");
+          await sound.playAndWait("win", 3200);
           announce("You reached 100 and won the game!");
           setMsg("🎉 You win!");
           setWins((w) => {
@@ -105,7 +108,7 @@ export default function SnakeLadder() {
             return nw;
           });
         } else {
-          sound.play("lose");
+          await sound.playAndWait("lose", 2600);
           announce("AI reached 100 and won.");
           setMsg("AI wins 😔");
         }

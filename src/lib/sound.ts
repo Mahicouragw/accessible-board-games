@@ -16,6 +16,7 @@ export type Sfx =
   | "pocket"
   | "ladder"
   | "snake"
+  | "snake_bite"
   | "turn"
   | "win"
   | "lose"
@@ -43,43 +44,44 @@ const SKEY = "arcade_sound_settings";
 
 // One-physical-sound, one-file mapping (md5-unique — verified, zero duplicates)
 const SOUND_FILES: Record<Sfx, string> = {
-  click: "/sounds/click.wav",                                    // UI click
-  select: "/sounds/select.wav",                                  // UI select
-  dice: "/sounds/realistic/dice-roll-wood.flac",                // 🎲 REAL wooden dice rolling on a wooden table (OpenGameArt CC0)
-  move: "/sounds/realistic/piece-place-wobble.ogg",             // REAL board-game piece placed/wobbled (OpenGameArt CC0)
+  click: "/sounds/click.wav",                                    // Kenney Interface click (CC0)
+  select: "/sounds/select.wav",                                  // Kenney Interface confirmation (CC0)
+  dice: "/sounds/realistic/dice-roll-wood.flac",                // 🎲 real wooden dice (OpenGameArt CC0)
+  move: "/sounds/realistic/tap-wood.wav",                       // 🪵 clean board-game TAP (Kenney Impact plank CC0)
   capture: "/sounds/realistic/capture-real.wav",                 // pop + drop (real pop from web layered)
   pocket: "/sounds/realistic/carrom-pocket-real.wav",            // carrom coin pocketed (rattle-drop)
-  ladder: "/sounds/realistic/ladder-climb-real.wav",             // 🪜 wooden steps + rope creak
-  snake: "/sounds/realistic/snake-hiss-real.wav",                // 🐍 hiss + downward slide
+  ladder: "/sounds/realistic/ladder-climb-real.wav",             // 🪜 4 real wooden footsteps (Kenney CC0)
+  snake: "/sounds/realistic/snake-hiss-real.wav",                // 🐍 real air whoosh slide (OpenGameArt CC0)
+  snake_bite: "/sounds/realistic/snake-bite-real.wav",           // 🐍 sharp strike (Kenney Impact CC0)
   turn: "/sounds/turn.wav",                                      // turn notification
   win: "/sounds/realistic/win-fanfare-real.wav",                 // 🏆 brass fanfare cadence
   lose: "/sounds/realistic/lose-sad-real.wav",                   // sad descending wah-wah
-  carrom_strike: "/sounds/realistic/carrom-strike-real.wav",     // striker snap + ring
-  snake_ladder_roll: "/sounds/realistic/dice-roll-wood-long.flac", // 🎲 longer wooden dice roll (distinct from Ludo)
-  ludo_dice: "/sounds/realistic/dice-rolling.wav",               // 🎲 Ludo dice — its own unique rattle
-  ludo_token: "/sounds/realistic/token-wood-move.wav",           // 🪵 wooden token sliding (unique)
-  background_music: "/sounds/music/hub-theme.wav",               // 🎵 default arcade tune
-  cricket_bat: "/sounds/realistic/carrom-strike-real.wav",       // sharp crack (bat)
+  carrom_strike: "/sounds/realistic/carrom-strike-real.wav",     // Kenney Impact plank (CC0)
+  snake_ladder_roll: "/sounds/realistic/dice-roll-wood-long.flac", // 🎲 longer real dice (OpenGameArt CC0)
+  ludo_dice: "/sounds/realistic/dice-rolling.wav",               // 🎲 REAL dice throw (Kenney Casino CC0)
+  ludo_token: "/sounds/realistic/token-wood-move.wav",           // 🪵 clean board-game tap (Kenney CC0)
+  background_music: "/sounds/music/hub-theme.mp3",               // 🎵 real loop (OpenGameArt CC-BY)
+  cricket_bat: "/sounds/cricket-bat.wav",                        // Kenney Impact punch (CC0)
   cricket_boundary: "/sounds/realistic/crowd-win.ogg",           // 📣 crowd roar (Google Sound Library)
   cricket_wicket: "/sounds/realistic/cricket-wicket.ogg",        // wicket rattle
-  checkers_move: "/sounds/realistic/token-wood-move.wav",        // 🪵 wooden piece slide
-  chess_move: "/sounds/realistic/token-wood-move.wav",           // 🪵 wooden piece slide
-  card_shuffle: "/sounds/realistic/card-shuffle-real.wav",       // riffle shuffle
-  coin_drop: "/sounds/coin-drop.wav",                            // 🪙 distinct coin drop
+  checkers_move: "/sounds/realistic/token-wood-move.wav",        // 🪵 board tap (Kenney CC0)
+  chess_move: "/sounds/realistic/token-wood-move.wav",           // 🪵 board tap (Kenney CC0)
+  card_shuffle: "/sounds/realistic/card-shuffle-real.wav",       // real riffle shuffle (Kenney Casino CC0)
+  coin_drop: "/sounds/coin-drop.wav",                            // 🪙 Kenney Casino chip (CC0)
   level_up: "/sounds/realistic/slide-whistle.ogg",               // ⬆️ rising slide whistle
-  bounce: "/sounds/bounce.wav",
+  bounce: "/sounds/bounce.wav",                                  // real boing (OpenGameArt CC0)
   button: "/sounds/realistic/ui-tick.ogg",                       // tick (Google Sound Library)
-  basketball_bounce: "/sounds/basketball-bounce.wav",
-  football_kick: "/sounds/football-kick.wav",
+  basketball_bounce: "/sounds/basketball-bounce.wav",            // Kenney Impact soft (CC0)
+  football_kick: "/sounds/football-kick.wav",                    // Kenney Impact punch (CC0)
 };
 
 // 🎵 Per-game background music — each of the user's favourites has its own tune;
 // every other game shares the cheerful arcade hub loop.
 export const GAME_MUSIC: Record<string, string> = {
-  ludo: "ludo-theme.wav",
-  "snake-ladder": "snake-ladder-theme.wav",
-  carrom: "carrom-theme.wav",
-  hub: "hub-theme.wav",
+  ludo: "ludo-theme.mp3",
+  "snake-ladder": "snake-ladder-theme.mp3",
+  carrom: "carrom-theme.mp3",
+  hub: "hub-theme.mp3",
 };
 
 class SoundEngine {
@@ -168,54 +170,63 @@ class SoundEngine {
     src.start(0);
   }
 
-  async play(name: Sfx) {
+  // v1.9.3 — one serialized queue for ALL sound effects: no overlapping audio,
+  // even when events fire back-to-back (dice → capture → win etc.).
+  private chain: Promise<void> = Promise.resolve();
+
+  private enqueue(task: () => Promise<void> | void): Promise<void> {
+    const run = this.chain.then(() => task());
+    this.chain = run.catch(() => undefined);
+    return run;
+  }
+
+  /** Load a buffer for a sfx name (cached), with API-route fallback. */
+  private async bufferFor(name: Sfx): Promise<AudioBuffer | null> {
+    const file = SOUND_FILES[name];
+    const apiFile = `/api/sounds/${file.split("/").pop()}`;
+    const ctx = this.ensure();
+    if (!ctx) return null;
+    for (const url of [file, apiFile]) {
+      const buffer = await this.loadBuffer(url);
+      if (buffer) return buffer;
+    }
+    return null;
+  }
+
+  /** Fire-and-forget play, serialized (never overlaps other SFX). */
+  play(name: Sfx) {
     if (!this.settings.sfx) return;
     // Rewards hook: any game that plays win/lose feeds the fair coin economy.
-    try {
-      if (name === "win" || name === "lose") {
-        const { recordOutcome } = await import("./rewards");
-        recordOutcome(name);
-      }
-    } catch {
-      /* rewards are best-effort; sound must never break */
+    if (name === "win" || name === "lose") {
+      import("./rewards")
+        .then(({ recordOutcome }) => recordOutcome(name))
+        .catch(() => undefined);
     }
+    void this.enqueue(async () => {
+      const buffer = await this.bufferFor(name);
+      if (buffer) this.playBuffer(buffer);
+      else console.warn(`sound unavailable: ${name} (${SOUND_FILES[name]})`);
+    });
+  }
 
-    // v1.9.1: WebAudio buffer path first (sub-10ms start, zero element churn),
-    // then the API route fallback for Vercel (when public/sounds 404s), then
-    // HTMLAudio, then synthesized fallback. An effect is never dropped silently.
-    const file = SOUND_FILES[name];
-    const apiFile = `/api/sounds/${file.split('/').pop()}`;
-    const tryUrls = [file, apiFile];
-
-    const ctx = this.ensure();
-    if (ctx) {
-      for (const url of tryUrls) {
-        const buffer = await this.loadBuffer(url);
-        if (buffer) {
-          this.playBuffer(buffer);
-          return;
-        }
+  /**
+   * v1.9.3 — play one sound and resolve AFTER it actually ends (capped at
+   * maxMs). Games use this to lock each tile of a move to exactly ONE tap and
+   * to announce the square only after the tap finished — no overlap, no
+   * delayed announcements, no extra sounds.
+   */
+  playAndWait(name: Sfx, maxMs = 3000): Promise<void> {
+    if (!this.settings.sfx) return Promise.resolve();
+    return this.enqueue(async () => {
+      const buffer = await this.bufferFor(name);
+      if (!buffer) {
+        console.warn(`sound unavailable: ${name} (${SOUND_FILES[name]})`);
+        return;
       }
-    } else {
-      for (const url of tryUrls) {
-        try {
-          const audio = new Audio(url);
-          audio.volume = this.settings.volume * 0.8;
-          audio.preload = "auto";
-          const playPromise = audio.play();
-          if (playPromise) {
-            await playPromise;
-            return;
-          }
-        } catch {
-          continue;
-        }
-      }
-    }
-
-    // v1.9.2 — no synthesized sounds: if the real file is unavailable we stay
-    // silent and log, so a wrong-time or fake sound never plays.
-    console.warn(`sound unavailable: ${name} (${file})`);
+      this.playBuffer(buffer);
+      const waitMs = Math.min(buffer.duration * 1000, maxMs);
+      await new Promise((r) => setTimeout(r, waitMs));
+    });
   }
 
   // ---------------- per-game background music ----------------
@@ -244,7 +255,7 @@ class SoundEngine {
     if (this.musicSource) this.stopMusic();
 
     try {
-      const buffer = (await this.loadBuffer(url)) || (await this.loadBuffer("/sounds/background-music.wav"));
+      const buffer = (await this.loadBuffer(url)) || (await this.loadBuffer("/sounds/music/hub-theme.mp3"));
       if (buffer && ctx) {
         if (!this.musicGain) {
           this.musicGain = ctx.createGain();

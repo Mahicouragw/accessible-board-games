@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sound } from "@/lib/sound";
 import { announce } from "@/lib/a11y";
+import { stepMove } from "@/lib/stepMove";
 import { useSaveScore } from "@/lib/useSaveScore";
 
 // 52-cell main loop as [row,col] on a 15x15 grid, clockwise from Red start.
@@ -112,28 +113,31 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
       let reachedHome = false;
 
       if (start < 0) {
+        // leaving the yard = one square moved = exactly ONE tap
         working[color][idx] = 0;
         setTokens({ ...working });
-        sound.play("ludo_token");
-        await delay(200);
+        await sound.playAndWait("ludo_token", 800);
+        announce(`${color} token ${idx + 1} left the yard.`);
+        await delay(80);
       } else {
-        // Per-tile sound + TalkBack announcement for each space moved.
-        // This is the "synchronization" the spec requires:
-        //   1 dice sound -> 1 announce of roll -> N per-tile sounds ->
-        //   N per-tile TalkBack announcements -> final result announcement.
-        for (let s = 1; s <= roll; s++) {
-          working = {
-            red: [...working.red],
-            green: [...working.green],
-            yellow: [...working.yellow],
-            blue: [...working.blue],
-          };
-          working[color][idx] = start + s;
-          setTokens(working);
-          sound.play("ludo_token");
-          announce(`${color} token ${idx + 1}, step ${start + s}`);
-          await delay(280);
-        }
+        // v1.9.3 — strict per-tile sync via stepMove: roll N → EXACTLY N taps,
+        // each tap finishes BEFORE its square announcement (no overlap, no extras).
+        const stepCount = roll;
+        await stepMove({
+          steps: stepCount,
+          onStep: (s) => {
+            working = {
+              red: [...working.red],
+              green: [...working.green],
+              yellow: [...working.yellow],
+              blue: [...working.blue],
+            };
+            working[color][idx] = start + s;
+            setTokens(working);
+          },
+          announceStep: (s) => announce(`${color} token ${idx + 1}, step ${start + s}`),
+          tap: () => sound.playAndWait("ludo_token", 800),
+        });
       }
       if (cancelled.current) return;
 
@@ -155,9 +159,9 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
         }
         if (captured) {
           setTokens({ ...working });
-          sound.play("capture");
+          await sound.playAndWait("capture", 900);
           announce(`${color} captured an opponent's token!`);
-          await delay(250);
+          await delay(150);
         }
       }
 
@@ -165,7 +169,7 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
       if (working[color].every((p) => p === FINISH)) {
         setPhase("over");
         if (humanColors.includes(color)) {
-          sound.play("win");
+          await sound.playAndWait("win", 3200);
           announce(`${color} got all tokens home. ${color} wins!`);
           setMsg(`🎉 ${color} wins Ludo!`);
           setWins((w) => {
@@ -174,7 +178,7 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
             return nw;
           });
         } else {
-          sound.play("lose");
+          await sound.playAndWait("lose", 2600);
           announce(`${color} won the game.`);
           setMsg(`${color} wins 😔`);
         }
@@ -203,8 +207,7 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
       setRolling(true);
       // Announce FIRST, then play dice, so TalkBack is in sync with the dice animation.
       const r = 1 + Math.floor(Math.random() * 6);
-      sound.play("ludo_dice");
-      await delay(600);
+      await sound.playAndWait("ludo_dice", 2600);
       setDice(r);
       setRolling(false);
       announce(`${color} rolled ${r}`);

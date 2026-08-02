@@ -21,3 +21,4 @@ implement-*.zip
 android/
 ios/
 
+tsconfig.tsbuildinfo
