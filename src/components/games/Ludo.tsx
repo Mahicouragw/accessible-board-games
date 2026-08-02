@@ -117,6 +117,10 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
         sound.play("ludo_token");
         await delay(200);
       } else {
+        // Per-tile sound + TalkBack announcement for each space moved.
+        // This is the "synchronization" the spec requires:
+        //   1 dice sound -> 1 announce of roll -> N per-tile sounds ->
+        //   N per-tile TalkBack announcements -> final result announcement.
         for (let s = 1; s <= roll; s++) {
           working = {
             red: [...working.red],
@@ -126,8 +130,9 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
           };
           working[color][idx] = start + s;
           setTokens(working);
-          sound.play("move");
-          await delay(150);
+          sound.play("ludo_token");
+          announce(`${color} token ${idx + 1}, step ${start + s}`);
+          await delay(280);
         }
       }
       if (cancelled.current) return;
@@ -196,8 +201,9 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
       if (phase !== "roll") return;
       setPhase("busy");
       setRolling(true);
-      sound.play("ludo_dice");
+      // Announce FIRST, then play dice, so TalkBack is in sync with the dice animation.
       const r = 1 + Math.floor(Math.random() * 6);
+      sound.play("ludo_dice");
       await delay(600);
       setDice(r);
       setRolling(false);

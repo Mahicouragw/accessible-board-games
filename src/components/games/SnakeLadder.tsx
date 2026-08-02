@@ -48,11 +48,13 @@ export default function SnakeLadder() {
         announce(`${names[player]} rolled ${roll}, too high, staying on ${start}`);
         return start;
       }
-      // walk step by step
+      // walk step by step — per-tile sound + TalkBack announcement.
+      // Spec: roll N → play N movement sounds (one per tile) + announce each.
       for (let n = start + 1; n <= target; n++) {
         setPos((p) => (player === 0 ? [n, p[1]] : [p[0], n]));
         sound.play("move");
-        await delay(160);
+        announce(`${names[player]} moved to square ${n}`);
+        await delay(280);
       }
       // ladder or snake
       if (LADDERS[target]) {
@@ -82,8 +84,9 @@ export default function SnakeLadder() {
       if (busy || winner !== null) return;
       setBusy(true);
       setRolling(true);
-      sound.play("dice");
+      // Compute the roll first so we can announce it in sync with the dice animation.
       const roll = 1 + Math.floor(Math.random() * 6);
+      sound.play("dice");
       await delay(600);
       setDice(roll);
       setRolling(false);
