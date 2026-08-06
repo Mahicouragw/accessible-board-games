@@ -6,6 +6,9 @@ on:
     branches: [main, master]
     tags: ['android-*']
 
+permissions:
+  contents: write
+
 jobs:
   web:
     runs-on: ubuntu-latest
@@ -35,11 +38,20 @@ jobs:
         with:
           channel: stable
           cache: true
-      - name: Build Flutter wrapper APK (com.mahicouragw.board_games)
+      - name: Ensure Android platform (com.mahicouragw.board_games)
         working-directory: flutter_apk
         run: |
+          if [ ! -d android ]; then
+            flutter create \
+              --platforms=android \
+              --org com.mahicouragw \
+              --project-name board_games \
+              .
+          fi
           flutter pub get
-          flutter build apk --debug
+      - name: Build Flutter wrapper APK
+        working-directory: flutter_apk
+        run: flutter build apk --debug
       - uses: actions/upload-artifact@v4
         with:
           name: AccessibleBoardGames.apk
