@@ -111,3 +111,7 @@ scripts/generate-icons.js (PNG from SVG)
 MIT — Accessible for everyone.
 # Fresh deployment Fri Jul 17 16:28:22 UTC 2026
 # Fresh deployment 2 - 2026-07-17T17:43:47Z - Fix redeploy error
+
+## v1.9.3 Android release refresh
+
+The current Android wrapper now reports the same v1.9.3 app version as the web app. CI runs type checks, lint, deterministic movement tests, and the production build before publishing a consistently named `AccessibleBoardGames.apk`.

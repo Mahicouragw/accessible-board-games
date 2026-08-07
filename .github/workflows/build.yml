@@ -18,8 +18,14 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci || npm install --no-audit --no-fund
-      - name: Build (type + lint checks enforced)
+      - run: npm ci
+      - name: Typecheck and lint
+        run: |
+          npm run typecheck
+          npm run lint
+      - name: Test deterministic game movement
+        run: node --test tests/stepMove.test.js
+      - name: Build
         run: npm run build
       - uses: actions/upload-artifact@v4
         with:
@@ -38,27 +44,27 @@ jobs:
         with:
           channel: stable
           cache: true
-      - name: Ensure Android platform (com.mahicouragw.board_games)
+      - name: Ensure Android platform
         working-directory: flutter_apk
         run: |
           if [ ! -d android ]; then
-            flutter create \
-              --platforms=android \
-              --org com.mahicouragw \
-              --project-name board_games \
-              .
+            flutter create --platforms=android --org com.mahicouragw --project-name board_games .
           fi
           flutter pub get
-      - name: Build Flutter wrapper APK
+      - name: Analyze and build Flutter wrapper APK
         working-directory: flutter_apk
-        run: flutter build apk --debug
+        run: |
+          flutter analyze --no-fatal-infos
+          flutter build apk --debug
+      - name: Normalize APK filename
+        run: cp flutter_apk/build/app/outputs/flutter-apk/app-debug.apk AccessibleBoardGames.apk
       - uses: actions/upload-artifact@v4
         with:
           name: AccessibleBoardGames.apk
-          path: flutter_apk/build/app/outputs/flutter-apk/*.apk
+          path: AccessibleBoardGames.apk
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/android-')
         uses: softprops/action-gh-release@v2
         with:
-          files: flutter_apk/build/app/outputs/flutter-apk/*.apk
+          files: AccessibleBoardGames.apk
           generate_release_notes: true
