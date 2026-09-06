@@ -382,6 +382,22 @@ body.reduce-motion .toast, body.reduce-motion .flash { animation: none !importan
 
 /* Toast & modal entrance */
 .toast, .modal-card { animation: pop 0.16s ease; }
+
+/* Offline / connectivity overlay */
+.offline {
+  position: fixed; inset: 0; z-index: 1000;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.offline-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 28px; max-width: 420px; width: 100%; text-align: center; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 14px; align-items: center;
+}
+.offline-icon { font-size: 3rem; color: var(--focus); }
+.offline-card h2 { margin-bottom: 0; }
+.offline-card p { margin: 0; color: var(--ink-dim); }
+.offline-card .hint { margin-top: 4px; }
 @keyframes pop { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: none; } }
 
 /* Media: large tappable controls for touch */

@@ -24,20 +24,22 @@
   };
   const OPTIONS = [
     { key: 'players', label: 'Players', type: 'select', default: '2', options: [['2', '2 players'], ['3', '3 players'], ['4', '4 players']] },
+    { key: 'ai', label: 'Fill seats with AI (vs AI)', type: 'select', default: '0', options: [['0', 'No AI (pass-and-play)'], ['1', 'Yes — human + AI']] },
   ];
 
   function start(hostEl, cfg, api) {
     const net = api.net;
     const online = cfg.online || null;
+    const aiEnabled = (cfg.ai === '1' || cfg.ai === true) && !online;
     const players = parseInt(cfg.players || '2', 10);
     const state = {
-      players: [], turn: 0, rolling: false, sixChain: 0, winner: null, done: false, lastRoll: 0,
+      players: [], turn: 0, rolling: false, sixChain: 0, winner: null, done: false, lastRoll: 0, aiTick: 0,
     };
     for (let i = 0; i < players; i++) {
       state.players.push({
         name: 'Player ' + (i + 1), color: COLORS[i], cname: CNAMES[i], offset: OFFSETS[i],
         tokens: [0, 0, 0, 0].map(() => -1), // -1 base
-        ai: false, freshSix: false,
+        ai: aiEnabled && i > 0, freshSix: false,
       });
     }
     if (cfg.roster) {
@@ -85,10 +87,12 @@
       rollRow.appendChild(U.el('span', { class: 'muted' }, [(online ? (state.turn === whoAmI ? 'You' : cur.name) : cur.name) + ' to roll']));
       const dice = U.el('div', { class: 'dice' }, [state.lastRoll ? String(state.lastRoll) : '?']);
       rollRow.appendChild(dice);
-      const rollBtn = U.el('button', { class: 'btn btn-primary', type: 'button' }, ['🎲 Roll']);
-      rollBtn.disabled = !isMyTurn || state.rolling || state.done;
+      const isAiPlayer = !online && cur.ai;
+      const rollBtn = U.el('button', { class: 'btn btn-primary', type: 'button' }, [isAiPlayer ? '🤖 AI rolls…' : '🎲 Roll']);
+      rollBtn.disabled = !isMyTurn || state.rolling || state.done || (isAiPlayer && !online);
       rollBtn.addEventListener('click', roll);
       rollRow.appendChild(rollBtn);
+      if (isAiPlayer && !state.rolling && !state.done) scheduleAi();
       hostEl.appendChild(rollRow);
 
       // Players tray
@@ -189,22 +193,63 @@
         sfx('click', { });
         U.say(p.name + ' rolled a ' + value + '.');
         const movables = movableTokens(p, value);
+        const isAi = p.ai && !online;
         if (!movables.length) {
           U.say('No moves available.');
-          if (value === 6) { U.say('Rolling a 6... ' + (++state.sixChain) + ' in a row.'); if (state.sixChain >= 3) { U.say('Three sixes — turn forfeited!'); state.sixChain = 0; broadcast(); nextTurn(); return; } }
+          if (value === 6) { U.say('Rolling a 6... ' + (++state.sixChain) + ' in a row.'); if (state.sixChain >= 3) { U.say('Three sixes — turn forfeited!'); state.sixChain = 0; broadcast(); nextTurn(); if (isAi) setTimeout(render, 400); return; } }
           // A 6 grants another roll if there are moves; else pass.
           if (value !== 6) { endTurn(); return; }
-          render(); return;
+          render();
+          if (isAi) setTimeout(aiTurn, 800);
+          return;
         }
         state.sixChain = 0;
         render();
+        if (isAi) setTimeout(aiMove, 800);
       }, 550);
+    }
+
+    // AI: keep the game moving when it's a bot's turn (local only).
+    function scheduleAi() {
+      clearTimeout(state.aiTick);
+      const ai = state.players[state.turn];
+      if (!ai || !ai.ai || state.done || state.rolling) return;
+      state.aiTick = setTimeout(function () { aiTurn(); }, 900);
+    }
+    function aiTurn() {
+      const p = state.players[state.turn];
+      if (state.done || state.rolling) { render(); return; }
+      if (!p || !p.ai) { render(); return; }
+      roll();
+    }
+    function pickBest(mv) {
+      const p = state.players[state.turn];
+      let best = mv[0], bestVal = -999;
+      for (const ti of mv) {
+        const t = p.tokens[ti];
+        const prog = (t === -1) ? 0 : t;
+        // Closer to FINISH is better; releasing from the base (a 6) is a good move.
+        const val = (t === -1) ? 50 : prog;
+        if (val > bestVal) { bestVal = val; best = ti; }
+      }
+      return best;
+    }
+    // After the roll number is known, let the bot pick a token and move.
+    function aiMove() {
+      const p2 = state.players[state.turn];
+      const mv = movableTokens(p2, state.lastRoll);
+      if (!mv.length) { endTurn(); return; }
+      moveToken(p2, pickBest(mv), state.lastRoll);
     }
 
     function moveToken(p, ti, roll) {
       let t = p.tokens[ti];
-      if (t === -1) { t = 0; U.say(p.name + ' releases a token onto the ' + boardCellFor(p, 0) + ' start square.'); p.tokens[ti] = t; animateTo(p, ti, 0); return; }
-      // step-by-step movement
+      if (t === -1) {
+        t = 0;
+        U.say(p.name + ' releases a token onto the ' + boardCellFor(p, 0) + ' start square.');
+        p.tokens[ti] = t; render(); 
+        return;
+      }
       const target = t + roll;
       stepMove(p, ti, t, target);
     }
@@ -234,7 +279,7 @@
         cur += 1;
         p.tokens[ti] = cur;
         render();
-        setTimeout(step, 200);
+        setTimeout(step, 260);
       };
       step();
     }

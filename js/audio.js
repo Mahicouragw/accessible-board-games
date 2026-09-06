@@ -139,9 +139,58 @@
     },
     four() { this.bat(); this.crowd({ big: true }); },
     six() { this.bat(); this.crowd({ big: true, long: true }); },
-    wicket() { this.crowd({ big: true }); this.umpire(); },
-    // Bowler run-up — short slides
+    // Realistic wicket: bat crack + stump rattle + umpire + roaring crowd
+    wicket() {
+      this.bat();
+      blip({ type: 'square', freq: 1400, endFreq: 220, dur: 0.07, peak: 0.42, filter: 'highpass', filterFreq: 1500 });
+      noiseRun(0.07, 0.16);
+      this.umpire();
+      this.crowd({ big: true, long: true });
+    },
+    // Distinct run sound per number 1..6 (each pick has its own tone/timbre).
+    run(n) {
+      const x = Math.max(1, Math.min(6, n || 1));
+      const base = 200 + x * 72;
+      // resonance of the willow
+      blip({ type: 'triangle', freq: base, endFreq: base * 1.35, dur: 0.11, peak: 0.5, filter: 'lowpass', filterFreq: 1300 });
+      // crisp contact click
+      blip({ type: 'square', freq: base * 1.5, dur: 0.045, peak: 0.28, delay: 0.01, filter: 'highpass', filterFreq: 2200 });
+    },
+    // Pad/stump-touch sound (bowler)
     bowl() { blip({ type: 'triangle', freq: 240, endFreq: 140, dur: 0.1, peak: 0.2 }); },
+    // Rhythmic clapping for a milestone (fifty / century)
+    applause() {
+      const c = ensureCtx(); if (!c) return;
+      const dur = 1.8;
+      const { src, g } = noise(dur);
+      if (!src) return;
+      const filt = ctx.createBiquadFilter();
+      filt.type = 'bandpass'; filt.frequency.value = 1600; filt.Q.value = 1.1;
+      const t = ctx.currentTime;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.26, t + 0.06);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      src.connect(filt); filt.connect(g);
+      src.stop(t + dur + 0.1);
+      // discrete claps layered over the swell
+      for (let i = 0; i < 9; i++) {
+        blip({ type: 'triangle', freq: 900 + Math.random() * 800, dur: 0.03, peak: 0.32, delay: 0.06 + i * 0.17, filter: 'highpass', filterFreq: 2600 });
+      }
+    },
+    // Victory fanfare (winning)
+    winFanfare() {
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((f, i) => blip({ type: 'triangle', freq: f, dur: 0.4, peak: 0.5, delay: i * 0.13, filter: 'lowpass', filterFreq: 3200 }));
+      blip({ type: 'sine', freq: 1568, dur: 0.7, peak: 0.32, delay: 0.52, filter: 'lowpass', filterFreq: 4200 });
+      this.crowd({ big: true, long: true });
+    },
+    // Defeat / losing
+    loseFall() {
+      blip({ type: 'sawtooth', freq: 440, endFreq: 110, dur: 1.1, peak: 0.35, filter: 'lowpass', filterFreq: 900 });
+      blip({ type: 'square', freq: 220, endFreq: 80, dur: 1.0, peak: 0.18, delay: 0.1, filter: 'lowpass', filterFreq: 600 });
+    },
+    // Crisp "tick" for step-by-step board movement (Snakes & Ladders etc.)
+    stepTick() { blip({ type: 'triangle', freq: 860, dur: 0.045, peak: 0.5, filter: 'highpass', filterFreq: 1900 }); },
     // Umpire announcement 'Out'
     umpire() {
       blip({ type: 'sawtooth', freq: 220, dur: 0.3, peak: 0.28, filter: 'bandpass', filterFreq: 800 });

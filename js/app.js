@@ -462,6 +462,30 @@
 
   /* ------------------------------------------------------------------ */
   let inited = false;
+  /* ------------------------- OFFLINE / CONNECTIVITY ----------------------- */
+  function showOffline() {
+    const o = $('offline');
+    if (o) o.hidden = false;
+    U.alertSay('No internet connection. Your internet is interrupted. Please check your internet and try again.');
+  }
+  function hideOffline() {
+    const o = $('offline');
+    if (o && !o.hidden) { o.hidden = true; audio.announce('Back online. You can keep playing.'); }
+  }
+  function syncConnectivity() {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) showOffline();
+    else hideOffline();
+  }
+  function wireConnectivity() {
+    window.addEventListener('online', hideOffline);
+    window.addEventListener('offline', showOffline);
+    window.addEventListener('load', syncConnectivity);
+    // Also re-check after a short delay (network can drop after load).
+    setTimeout(syncConnectivity, 500);
+    const rel = $('offline-reload');
+    if (rel) rel.addEventListener('click', function () { try { location.reload(); } catch (e) {} });
+  }
+
   function init() {
     if (inited) return; // guard against double DOMContentLoaded
     inited = true;
@@ -471,7 +495,7 @@
 
     store.applySettings();
     wireAppbar(); wireWelcome(); wireAuth(); wireSettings();
-    wireNetGuestStart();
+    wireNetGuestStart(); wireConnectivity();
 
     // Connection chip
     const chip = $('conn-chip');

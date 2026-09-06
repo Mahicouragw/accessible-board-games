@@ -38,9 +38,12 @@
       winner: null,
       done: false,
     };
-    // Build roster: local players + optional AI seats.
+    const aiEnabled = (cfg.ai === '1' || cfg.ai === true) && !online;
+    // Build roster: local players, with optional AI seats for "vs AI" play.
     for (let i = 0; i < players; i++) {
-      state.players.push({ name: 'Player ' + (i + 1), pos: 0, color: COLORS[i], ai: false });
+      // When playing against AI, seat 0 is the human; every other seat is AI.
+      const isAI = aiEnabled ? i > 0 : false;
+      state.players.push({ name: (aiEnabled && i > 0) ? 'AI ' + (i) : 'Player ' + (i + 1), pos: 0, color: COLORS[i], ai: isAI });
     }
     // In online mode the roster derives from the room's players set in rooms.js
     // via cfg.roster; fall back to Player i names otherwise.
@@ -94,8 +97,9 @@
       rollRow.appendChild(U.el('span', { class: 'muted' }, [who + ' to roll']));
       const dice = U.el('div', { class: 'dice' }, [state.dice ? String(state.dice) : '?']);
       rollRow.appendChild(dice);
-      const rollBtn = U.el('button', { class: 'btn btn-primary', type: 'button' }, ['🎲 Roll']);
-      rollBtn.disabled = !isMyTurn || state.rolling || state.done;
+      const isAiPlayer = !online && current && current.ai;
+      const rollBtn = U.el('button', { class: 'btn btn-primary', type: 'button' }, [isAiPlayer ? '🤖 AI rolls…' : '🎲 Roll']);
+      rollBtn.disabled = !isMyTurn || state.rolling || state.done || (isAiPlayer && !online);
       rollBtn.addEventListener('click', roll);
       rollRow.appendChild(rollBtn);
       hostEl.appendChild(rollRow);
@@ -151,7 +155,9 @@
       broadcast();
       sfx('diceShake');
       let steps = Math.floor(Math.random() * 6) + 1;
-      U.say(p.name + ' rolled a ' + steps + '.');
+      const from = p.pos;
+      const target = Math.min(100, from + steps);
+      U.say(p.name + ' rolled a ' + steps + '. Moving from square ' + from + ' to square ' + target + '.');
       diceAnimate(steps, () => {
         moveToken(p, steps, () => {
           state.rolling = false;
@@ -174,15 +180,14 @@
       }, 70);
     }
 
-    // Step-by-step movement with per-tile announcements (audio-first).
+    // Step-by-step movement — one synchronized "tick" per square (audio-first).
     function moveToken(p, steps, cb) {
-      const from = p.pos;
-      let cur = from;
+      let cur = p.pos;
       const step = (i) => {
         if (i >= steps) {
           // landing resolution
           if (LADDERS[cur]) {
-            U.sfx('steps', { });
+            sfx('steps', { });
             U.say(p.name + ' lands on ' + cur + ' and climbs the ladder to ' + LADDERS[cur] + '!');
             cur = LADDERS[cur];
             p.pos = cur;
@@ -190,7 +195,7 @@
             return;
           }
           if (SNAKES[cur]) {
-            U.sfx('snake');
+            sfx('snake');
             U.say(p.name + ' lands on ' + cur + ' and slides down the snake to ' + SNAKES[cur] + '!');
             cur = SNAKES[cur];
             p.pos = cur;
@@ -202,16 +207,15 @@
           return;
         }
         cur = Math.min(100, cur + 1);
-        sfx('click', { pan: ((cur % 10) - 4.5) / 4 });
-        // announce every 10th tile to keep pace, and every tile visually
-        render();
-        setTimeout(() => step(i + 1), 260);
+        sfx('stepTick');            // crisp tick synced to each square
+        render();                   // token visually lands one square at a time
+        setTimeout(() => step(i + 1), 340);
       };
       step(0);
     }
 
     function decideWin(p, cb) {
-      if (p.pos === 100) { state.winner = p; state.done = true; broadcast(); sfx('chime'); U.say(p.name + ' reaches 100 and wins!'); render(); cb(); return; }
+      if (p.pos === 100) { state.winner = p; state.done = true; broadcast(); sfx('winFanfare'); U.say(p.name + ' reaches 100 and wins!'); render(); cb(); return; }
       cb();
     }
 

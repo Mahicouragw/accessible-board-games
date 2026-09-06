@@ -210,6 +210,17 @@
     <span>HeroBoard · Audio-first multiplayer board games</span>
   </footer>
 
+  <!-- Offline / connectivity overlay -->
+  <div id="offline" class="offline" role="dialog" aria-modal="true" aria-labelledby="offline-title" hidden>
+    <div class="offline-card">
+      <div class="offline-icon" aria-hidden="true">&#9888;</div>
+      <h2 id="offline-title">No internet connection</h2>
+      <p>Your internet is interrupted. Please check your internet and try again.</p>
+      <button class="btn btn-primary" id="offline-reload">&#8635;&nbsp; Reload &amp; try again</button>
+      <p class="hint">If the page doesn't recover, tap Reload. You can still sign in if a report is already open.</p>
+    </div>
+  </div>
+
   <!-- Optional: loads Supabase JS only so the app can use real Realtime rooms.
        If it fails to load (e.g. offline preview), the app gracefully falls back
        to its local transport — no credentials or network needed to play. -->

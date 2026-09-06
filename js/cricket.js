@@ -35,8 +35,9 @@
   /* Runner-up choice for the setup schema */
   const OPTIONS = [
     { key: 'level', label: 'Tactical level', type: 'range', min: 1, max: 5, default: 2, hint: 'Level 1 = classic quick. Higher levels add shots, deliveries, required-rate pressure. Stronger opponents.' },
-    { key: 'overs', label: 'Overs per side', type: 'select', default: '2', options: [['1', '1 over (6 balls)'], ['2', '2 overs (12 balls)'], ['3', '3 overs (18 balls)'], ['5', '5 overs (30 balls)']], hint: 'How many balls each side bats.' },
-    { key: 'squad', label: 'Players per side', type: 'select', default: '1', options: [['1', 'Single (1 v 1)'], ['2', 'Pair (2 v 2)'], ['3', 'Squad (3 v 3)'], ['5', 'Squad (5 v 5)']], hint: 'Use 1 for a quick match. Bigger squads = teams with wickets.' },
+    { key: 'overs', label: 'Overs per side (1 over = 6 balls)', type: 'select', default: '2', options: [['1', '1 over (6 balls)'], ['2', '2 overs (12 balls)'], ['3', '3 overs (18 balls)'], ['5', '5 overs (30 balls)'], ['10', '10 overs (60 balls)'], ['20', '20 overs (120 balls)']], hint: 'Every 6 balls is one over (like a real game).' },
+    { key: 'squad', label: 'Players per side (team size)', type: 'select', default: '1', options: [['1', 'Single (1 v 1)'], ['2', 'Pair (2 v 2)'], ['3', 'Squad (3 v 3)'], ['5', 'Team (5 v 5)'], ['11', 'Full team (11 v 11)']], hint: 'Choose 11 for a full team like real cricket.' },
+    { key: 'wickets', label: 'Wickets per side', type: 'select', default: '1', options: [['1', '1 wicket'], ['6', '6 wickets'], ['7', '7 wickets'], ['8', '8 wickets'], ['9', '9 wickets'], ['10', '10 wickets'], ['11', '11 wickets'], ['15', '15 wickets'], ['16', '16 wickets'], ['17', '17 wickets']], hint: 'How many outs before the side is all out. Pick 10 for a full 11-a-side innings.' },
     { key: 'youBatFirst', label: 'First innings', type: 'select', default: 'true', options: [['true', 'You bat first (AI bowls)'], ['false', 'You bowl first (AI bats)']], hint: 'This sets who acts first when playing the AI.' },
   ];
 
@@ -110,9 +111,10 @@
      Controller
      ===================================================================== */
   function start(hostEl, cfg0, api) {
-    const cfg = Object.assign({ level: 1, overs: 2, squad: 1, youBatFirst: true, mode: 'ai', online: null }, cfg0);
+    const cfg = Object.assign({ level: 1, overs: 2, squad: 1, wickets: 1, youBatFirst: true, mode: 'ai', online: null }, cfg0);
     const ballsPerSide = cfg.overs * 6;
-    const wicketsPerSide = cfg.squad;
+    const wicketsPerSide = parseInt(cfg.wickets, 10) || cfg.squad || 1;
+    const playersPerSide = parseInt(cfg.squad, 10) || 1;
     const net = api.net;
     const isHost = cfg.mode === 'online' && cfg.online && cfg.online.myIndex === 0;
     // In AI mode you always drive one fixed side; "youBatFirst" just decides
@@ -142,8 +144,8 @@
 
     function makeSide(sym) {
       const roster = [];
-      for (let i = 0; i < wicketsPerSide; i++) roster.push({ name: sideName(sym) + ' · ' + (i + 1), runs: 0, balls: 0, out: false });
-      return { name: sideName(sym), roster, len: wicketsPerSide };
+      for (let i = 0; i < playersPerSide; i++) roster.push({ name: sideName(sym) + ' · ' + (i + 1), runs: 0, balls: 0, out: false });
+      return { name: sideName(sym), roster, len: playersPerSide };
     }
     function sideName(sym) {
       if (cfg.mode === 'online') return sym === cfg.online.mySide ? 'You' : 'Opponent';
@@ -214,13 +216,17 @@
       const batName = sideName(sym);
       const bowlName = sideName(sym === 'A' ? 'B' : 'A');
       const sc = scoreOf(sym);
+      const prevRuns = sc.runs - (res.out ? 0 : res.runs);
       let txt = batName + ' picks ' + bat.n + ', ' + bowlName + ' picks ' + bowl.n + '. ';
       if (res.out) { U.sfx('wicket'); txt += 'OUT! Wicket! ' + currentBatter(sym).name + ' is dismissed.'; }
       else if (res.six) { U.sfx('six'); txt += 'SIX! ' + res.runs + ' runs!'; }
       else if (res.four) { U.sfx('four'); txt += 'Four runs!'; }
       else if (res.escape) { U.sfx('select'); txt += 'High and wide — no run, the numbers match but it is dropped!'; }
-      else if (res.runs) { U.sfx('bat'); txt += res.runs + ' run' + (res.runs > 1 ? 's' : '') + ' added.'; }
+      else if (res.runs) { U.sfx('run', res.runs); txt += res.runs + ' run' + (res.runs > 1 ? 's' : '') + ' added.'; }
       else { U.sfx('tic'); txt += 'Dot ball.'; }
+      // Milestone applause — fifty and century for the batting side.
+      if (!res.out && prevRuns < 50 && sc.runs >= 50) { U.sfx('applause'); txt += ' That is a FIFTY! The crowd applauds!'; }
+      else if (!res.out && prevRuns < 100 && sc.runs >= 100) { U.sfx('applause'); txt += ' A CENTURY! What a knock!' + ' The crowd is on its feet!'; }
       const scTxt = 'Score now ' + sc.runs + (sc.wickets ? ' for ' + sc.wickets : '') + ' in ' + sc.balls + ' balls.';
       txt += ' ' + scTxt;
       U.say(txt);
@@ -258,7 +264,7 @@
 
       const head = U.el('div', { class: 'screen-head' });
       head.appendChild(U.el('h2', null, ['Hand Cricket' + (cfg.mode === 'online' ? ' · online' : cfg.mode === 'ai' ? ' · vs AI' : ' · local')]));
-      head.appendChild(U.el('p', { class: 'muted' }, ['Level ' + cfg.level + ' · ' + cfg.overs + ' over' + (cfg.overs > 1 ? 's' : '') + ' · ' + wicketsPerSide + ' wicket' + (wicketsPerSide > 1 ? 's' : '') + ' a side']));
+      head.appendChild(U.el('p', { class: 'muted' }, ['Level ' + cfg.level + ' · ' + cfg.overs + ' over' + (cfg.overs > 1 ? 's' : '') + ' · ' + playersPerSide + ' player' + (playersPerSide > 1 ? 's' : '') + ' a side · ' + wicketsPerSide + ' wicket' + (wicketsPerSide > 1 ? 's' : '')]));
       hostEl.appendChild(head);
 
       // Scoreboard
@@ -506,7 +512,11 @@
       const a = scoreOf('A'), b = scoreOf('B');
       const wrap = U.el('div', { class: 'panel', style: 'margin-top:16px;text-align:center;' });
       let head = s.winner === 'tie' ? 'It’s a tie!' : sideName(s.winner) + ' wins!';
-      if (s.winner !== 'tie') U.sfx('chime');
+      // Distinct win / lose / draw audio, judged from the local player's side.
+      const mySide = cfg.mode === 'online' ? cfg.online.mySide : (cfg.mode === 'ai' ? humanSide : 'A');
+      if (s.winner === 'tie') { U.sfx('chime'); }
+      else if (s.winner === mySide) { U.sfx('winFanfare'); }
+      else { U.sfx('loseFall'); }
       wrap.appendChild(U.el('h2', { class: 'flash' }, [head]));
       wrap.appendChild(U.el('p', { class: 'muted' }, [U.esc(sideName('A')) + ' ' + a.runs + '/' + a.wickets + ' — ' + U.esc(sideName('B')) + ' ' + b.runs + '/' + b.wickets]));
       if (s.motm) {
