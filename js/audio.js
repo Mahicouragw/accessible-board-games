@@ -275,6 +275,24 @@
   };
 
   /* ---------------------------------------------------------------------
+     Hard-stop all game audio. Use when the game screen closes, the tab is
+     hidden, or the page is about to unload. Silences the whole graph,
+     cuts any in-flight speech, and suspends the AudioContext so no SFX,
+     loop, or tail keeps playing in the background.
+     --------------------------------------------------------------------- */
+  A.stopAll = function () {
+    A.stopMusic();
+    try { if (global.speechSynthesis) global.speechSynthesis.cancel(); } catch (e) {}
+    try { if (ctx && master) master.gain.value = 0; } catch (e) {}
+    try { if (ctx && ctx.state === 'running') ctx.suspend(); } catch (e) {}
+  };
+  // Re-arm audio after a stop (e.g. the tab becomes visible again).
+  A.resumeAll = function () {
+    try { if (ctx && master) master.gain.value = 0.9; } catch (e) {}
+    try { if (ctx && ctx.state === 'suspended') ctx.resume(); } catch (e) {}
+  };
+
+  /* ---------------------------------------------------------------------
      Speech — window.speechSynthesis wrapper with guidance + queue.
      --------------------------------------------------------------------- */
   let queued = false;

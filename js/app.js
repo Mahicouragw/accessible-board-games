@@ -434,6 +434,7 @@
   }
 
   function exitGame() {
+    audio.stopAll(); // kill music/SFX/speech the moment the game screen closes
     try { if (activeGameController && activeGameController.destroy) activeGameController.destroy(); } catch (e) {}
     activeGameController = null;
     U.clear($('game-stage'));
@@ -484,6 +485,15 @@
     setTimeout(syncConnectivity, 500);
     const rel = $('offline-reload');
     if (rel) rel.addEventListener('click', function () { try { location.reload(); } catch (e) {} });
+
+    // Hard-stop all game audio the moment the tab is hidden or about to close,
+    // so the music/SFX never keeps playing after you leave or close the tab.
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) audio.stopAll();
+      else audio.resumeAll();
+    });
+    window.addEventListener('pagehide', function () { audio.stopAll(); });
+    window.addEventListener('beforeunload', function () { audio.stopAll(); });
   }
 
   function init() {
