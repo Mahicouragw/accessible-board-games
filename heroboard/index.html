@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0f1e" />
+  <meta name="description" content="HeroBoard — a zero-copyright, audio-first multiplayer board-games hub. Play Hand Cricket, Ludo, Snakes & Ladders and Carrom with full screen-reader support, live chat and spectators." />
+  <title>HeroBoard · Audio-First Board-Games Hub</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Screen-reader live region -->
+  <div id="sr-live" class="sr-only" role="status" aria-live="polite"></div>
+  <div id="sr-alert" class="sr-only" role="alert" aria-live="assertive"></div>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <!-- Top app bar -->
+  <header class="appbar" id="appbar">
+    <button class="icon-btn" id="btn-back" aria-label="Back" hidden>&#8592;</button>
+    <div class="brand" tabindex="-1">
+      <span class="brand-mark" aria-hidden="true">&#9733;</span>
+      <span class="brand-name">HeroBoard</span>
+    </div>
+    <div class="appbar-actions">
+      <span id="player-chip" class="chip" hidden></span>
+      <span id="conn-chip" class="chip chip-net" hidden>Offline</span>
+      <button class="icon-btn" id="btn-settings" aria-label="Open settings" hidden>&#9881;</button>
+    </div>
+  </header>
+
+  <main id="main" class="main" tabindex="-1">
+    <!-- ===================== WELCOME ===================== -->
+    <section id="screen-welcome" class="screen" aria-label="Welcome">
+      <div class="hero">
+        <p class="kicker">Zero-copyright · Audio-first · Play together</p>
+        <h1>HeroBoard</h1>
+        <p class="sub">
+          The board-game arena that speaks. Sound, voice, live multiplayer and
+          deep accessibility — built for everyone.
+        </p>
+        <div class="hero-cta">
+          <button class="btn btn-primary btn-lg" id="btn-play">&#9664;&nbsp; Play now</button>
+          <button class="btn btn-ghost btn-lg" id="btn-about">&#9432;&nbsp; What is this?</button>
+        </div>
+        <div class="hero-stats" aria-label="Highlights">
+          <div class="stat"><strong id="stat-hc">0</strong><span>Hand Cricket</span></div>
+          <div class="stat"><strong id="stat-games">0</strong><span>Games</span></div>
+          <div class="stat"><strong id="stat-rooms">0</strong><span>Live rooms</span></div>
+        </div>
+        <p class="muted" id="welcome-signin">Not signed in — create a hero name to save your stats.</p>
+      </div>
+
+      <section class="about" id="about-panel" aria-label="About HeroBoard" hidden>
+        <h2>Made for every player</h2>
+        <ul class="tick-list">
+          <li><strong>Audio-first:</strong> every move announces itself in clear speech and crafted sound — no screen required to play.</li>
+          <li><strong>Zero copyright:</strong> all sound effects are synthesised in-browser with the Web Audio API. Nothing to license.</li>
+          <li><strong>Multiplayer:</strong> local pass-and-play on one device, or online rooms synced in real time via Supabase.</li>
+          <li><strong>Spectators &amp; chat:</strong> watch live, send messages, and inspect any player's profile before and during a match.</li>
+          <li><strong>Accessible:</strong> high contrast, large targets, full keyboard control, live region announcements, and reduced-motion support.</li>
+        </ul>
+      </section>
+    </section>
+
+    <!-- ===================== AUTH ===================== -->
+    <section id="screen-auth" class="screen" aria-label="Sign in or create a hero" hidden>
+      <div class="panel panel-narrow">
+        <h2 id="auth-title">Create your hero</h2>
+        <p class="muted" id="auth-sub">Pick a unique Hero ID / username. In a multiplayer game, names must not repeat.</p>
+        <form id="auth-form" novalidate>
+          <label class="field">
+            <span class="field-label">Hero name</span>
+            <input id="auth-name" name="name" type="text" autocomplete="off" spellcheck="false"
+                   placeholder="e.g. Goldfish, Radar, Kite" maxlength="24" required />
+            <span class="hint">Letters, numbers, hyphens and underscores. 3–24 characters.</span>
+          </label>
+          <p id="auth-msg" class="msg" role="alert" aria-live="assertive" hidden></p>
+          <button class="btn btn-primary btn-lg btn-block" id="auth-submit" type="submit">
+            &#10004;&nbsp; Claim this name
+          </button>
+          <p class="hint center">
+            Already have a hero? Type your exact ID/name and sign in below.
+          </p>
+          <button class="btn btn-ghost btn-block" id="auth-signin" type="button">Sign in with my ID</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ===================== HUB ===================== -->
+    <section id="screen-hub" class="screen" aria-label="Game hub" hidden>
+      <header class="screen-head">
+        <h2>Choose your game</h2>
+        <p class="muted">Everything plays with sound, voice guidance and live multiplayer.</p>
+      </header>
+      <div class="game-grid" id="game-grid"></div>
+    </section>
+
+    <!-- ===================== SETTINGS ===================== -->
+    <section id="screen-settings" class="screen" aria-label="Settings" hidden>
+      <div class="panel panel-narrow">
+        <h2>Settings</h2>
+        <div class="setting" role="group" aria-label="Sound effects">
+          <div class="setting-text">
+            <span class="setting-title">Sound effects (SFX)</span>
+            <span class="hint">Synthesised board sounds like dice, clacks, bat hits and crowd.</span>
+          </div>
+          <button class="switch" id="sw-sfx" aria-pressed="true" role="switch" aria-label="Sound effects"><span class="knob"></span></button>
+        </div>
+        <div class="setting" role="group" aria-label="Background music">
+          <div class="setting-text">
+            <span class="setting-title">Background music</span>
+            <span class="hint">A calm, royalty-free ambient loop generated in-browser.</span>
+          </div>
+          <button class="switch" id="sw-music" aria-pressed="false" role="switch" aria-label="Background music"><span class="knob"></span></button>
+        </div>
+        <div class="setting" role="group" aria-label="Voice guidance">
+          <div class="setting-text">
+            <span class="setting-title">Spoken guidance</span>
+            <span class="hint">Announce scores, moves and messages out loud.</span>
+          </div>
+          <button class="switch" id="sw-voice" aria-pressed="true" role="switch" aria-label="Spoken guidance"><span class="knob"></span></button>
+        </div>
+        <div class="setting" role="group" aria-label="Sound orientation mini-game">
+          <div class="setting-text">
+            <span class="setting-title">Spatial sound</span>
+            <span class="hint">Use 3D panning so you can locate sounds (Free-Fire style).</span>
+          </div>
+          <button class="switch" id="sw-spatial" aria-pressed="false" role="switch" aria-label="Spatial sound"><span class="knob"></span></button>
+        </div>
+        <div class="setting" role="group" aria-label="Reduced motion">
+          <div class="setting-text">
+            <span class="setting-title">Reduce motion</span>
+            <span class="hint">Minimise animation and flashing.</span>
+          </div>
+          <button class="switch" id="sw-motion" aria-pressed="false" role="switch" aria-label="Reduce motion"><span class="knob"></span></button>
+        </div>
+        <div class="setting" role="group" aria-label="Theme">
+          <div class="setting-text">
+            <span class="setting-title">Contrast theme</span>
+            <span class="hint">High contrast is the default.</span>
+          </div>
+          <div class="seg" id="theme-seg" role="group" aria-label="Theme">
+            <button class="seg-btn" data-theme="hc" aria-pressed="true">High contrast</button>
+            <button class="seg-btn" data-theme="dark" aria-pressed="false">Midnight</button>
+            <button class="seg-btn" data-theme="light" aria-pressed="false">Daylight</button>
+          </div>
+        </div>
+        <h3 class="setting-group-title">Your hero</h3>
+        <div class="profile-row">
+          <div>
+            <div id="settings-id" class="id-box" tabindex="0">—</div>
+            <span class="hint">Your unique player ID. Only you need this to sign in.</span>
+          </div>
+          <button class="btn btn-ghost" id="btn-copy-id">&#128203;&nbsp; Copy ID</button>
+        </div>
+        <button class="btn btn-ghost btn-block" id="btn-signout">&#8594;&nbsp; Sign out</button>
+      </div>
+    </section>
+
+    <!-- ===================== PROFILE ===================== -->
+    <section id="screen-profile" class="screen" aria-label="Player profile" hidden>
+      <div class="panel">
+        <div class="profile-head">
+          <div class="avatar" id="p-avatar" aria-hidden="true">?</div>
+          <div>
+            <h2 id="p-name">—</h2>
+            <p class="muted" id="p-id">ID: —</p>
+          </div>
+        </div>
+        <div class="profile-badges" id="p-badges"></div>
+        <div class="stat-grid" id="p-stats"></div>
+        <h3>Game records</h3>
+        <div id="p-games"></div>
+        <button class="btn btn-ghost" id="btn-copy-id-2">&#128203;&nbsp; Copy my ID</button>
+      </div>
+    </section>
+
+    <!-- ===================== GAME SETUP ===================== -->
+    <section id="screen-setup" class="screen" aria-label="Set up a game" hidden>
+      <div class="panel">
+        <h2 id="setup-title">New match</h2>
+        <div id="setup-body"></div>
+      </div>
+    </section>
+
+    <!-- ===================== ROOM LOBBY ===================== -->
+    <section id="screen-room" class="screen" aria-label="Room" hidden>
+      <div id="room-mount" class="panel"></div>
+    </section>
+
+    <!-- ===================== GAME ===================== -->
+    <section id="screen-game" class="screen" aria-label="Game" hidden>
+      <div id="game-stage"></div>
+    </section>
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- Modal -->
+  <div id="modal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <button class="icon-btn modal-close" id="modal-close" aria-label="Close dialog">&#10005;</button>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <span>Zero-copyright sound — synthesised in your browser.</span>
+    <span>HeroBoard · Audio-first multiplayer board games</span>
+  </footer>
+
+  <!-- Optional: loads Supabase JS only so the app can use real Realtime rooms.
+       If it fails to load (e.g. offline preview), the app gracefully falls back
+       to its local transport — no credentials or network needed to play. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/net.js"></script>
+  <script src="js/common.js"></script>
+  <script src="js/cricket.js"></script>
+  <script src="js/snakes.js"></script>
+  <script src="js/ludo.js"></script>
+  <script src="js/carrom.js"></script>
+  <script src="js/rooms.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
