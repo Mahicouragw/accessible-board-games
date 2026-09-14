@@ -172,7 +172,7 @@
     // game options
     const cfg = {};
     (g.options || []).forEach((o) => cfg[o.key] = o.default);
-    try{const saved=JSON.parse(localStorage.getItem('heroboard.setup.'+gameId)||'{}');for(const o of g.options||[]){const value=saved[o.key];if(o.type==='select'&&o.options.some(([v])=>String(v)===String(value)))cfg[o.key]=value;else if(o.type==='range'&&Number.isFinite(value)&&value>=o.min&&value<=o.max)cfg[o.key]=value;}}catch(e){}
+    try{const saved=JSON.parse(localStorage.getItem('heroboard.setup.'+gameId)||'{}');for(const o of g.options||[]){const value=saved[o.key];if(o.type==='select'&&o.options.some(([v])=>String(v)===String(value)))cfg[o.key]=value;else if(o.type==='range'&&Number.isFinite(value)&&value>=o.min&&value<=o.max)cfg[o.key]=value;}if(gameId==='snakes'&&saved.aiCount==null&&(saved.ai==='1'||saved.ai===true))cfg.aiCount=String(Math.max(1,Math.min(3,(parseInt(saved.players,10)||2)-1)));}catch(e){}
     const optsBox = U.el('div');
     (g.options || []).forEach(o=>{
       const field=renderOption(o,cfg);
@@ -231,7 +231,7 @@
     const startBtn = U.el('button', { class: 'btn btn-primary btn-lg btn-block', type: 'button' }, ['▶ Start']);
     startBtn.addEventListener('click', () => {
       profile = store.current(); if (!profile) { needAuth(); return; }
-      audio.play('select');
+      if(gameId!=='snakes')audio.play('select');
       launchGame(gameId, Object.assign({ mode }, cfg), profile);
     });
     body.appendChild(startBtn);
@@ -425,6 +425,7 @@
     if (!g) return;
     roomController?.destroy?.();roomController=null;
     activeGameController?.destroy?.();activeGameController=null;
+    if(cfg.mode!=='online'){net.leave();pendingOnline=null;}
     audio.resumeAll();
     currentGame = gameId;
     show('game');

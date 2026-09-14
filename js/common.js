@@ -43,6 +43,7 @@
   U.say = function (text) {
     if (global.HeroAudio) HeroAudio.announce(text);
   };
+  U.sayAndWait = function(text,opts){return global.HeroAudio?.announceAndWait ? global.HeroAudio.announceAndWait(text,opts) : (U.say(text),Promise.resolve(true));};
   U.alertSay = function (text) {
     if (global.HeroAudio) HeroAudio.alert(text);
   };

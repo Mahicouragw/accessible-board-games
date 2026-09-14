@@ -5,10 +5,11 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "test": "node test/smoke.js && node test/online.js && node test/cricket-rules.js",
+    "test": "node test/smoke.js && node test/online.js && node test/cricket-rules.js && npm run test:snakes",
     "test:engines": "node test/engines.js",
     "serve": "npx serve .",
-    "start": "node scripts/dev.js"
+    "start": "node scripts/dev.js",
+    "test:snakes": "node --test test/snakes.test.js test/audio-sequence.test.js"
   },
   "keywords": [
     "board-games",
@@ -24,6 +25,7 @@
   "license": "MIT",
   "author": "HeroBoard",
   "devDependencies": {
+    "@sinonjs/fake-timers": "^15.4.0",
     "jsdom": "^24.0.0"
   }
 }

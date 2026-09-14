@@ -15,7 +15,7 @@ window.onerror = (m) => console.log('WINERROR', m);
 window.requestAnimationFrame = (cb) => setTimeout(() => cb(), 0);
 window.cancelAnimationFrame = (id) => clearTimeout(id);
 if (window.HTMLCanvasElement) window.HTMLCanvasElement.prototype.getContext = function () { return window.__ctx || (window.__ctx = new Proxy({ canvas: {} }, { get: (t, k) => k in t ? t[k] : (t[k] = () => {}), set: (t, k, v) => (t[k] = v, true) })); };
-window.speechSynthesis = { getVoices: () => [], speak: () => {}, cancel: () => {} };
+window.speechSynthesis = { getVoices: () => [], speak: (u) => queueMicrotask(()=>u.onend?.()), cancel: () => {} };
 window.SpeechSynthesisUtterance = function (t) { this.text = t; };
 if (!window.BroadcastChannel) window.BroadcastChannel = class { constructor() {} postMessage() {} set onmessage(f) {} };
 

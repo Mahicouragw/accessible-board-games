@@ -21,6 +21,17 @@ The preview server binds to port 8080. No build step.
 - Captains choose their own active batter/bowler only; selections lock once either pick is committed. Unpicked players spectate.
 - SHA-256 commit/reveal prevents changing a number after the opposing pick locks in normal trusted-device play. It is not a security boundary against a modified client or dishonest host.
 
+## Snakes & Ladders turn flow
+- Select **vs AI** and **2 AI opponents** for Player 1 (Red), AI 1 (Green) and AI 2 (Yellow).
+- Local and room player counts remain separate from the AI-opponent count.
+- A neutral start cue plays only on starting/restarting a match; results are never announced at startup.
+- Dice sound alone → “Red rolls 5” → one tick per square, 500 ms apart → “Red moved from Start to square 5.” No per-square speech.
+- A six earns another turn, including consecutive AI sixes. A winning move ends the match instead.
+- Start is off the board (position 0): a first roll of 5 visits squares 1–5. From square 1, a roll of 5 ends on square 6.
+- Exact finish is required; reaching 100 by ladder also wins. Overshoots do not move.
+- Pause/resume is available. Hiding the tab pauses the sequence; quitting/restarting cancels old timers and speech waits.
+- `npm run test:snakes` runs dedicated sequencing, extra-turn, state-isolation, cancellation and audio-completion regressions.
+
 ## Audio and accessibility
 Distinct recorded crowd cues for four, five and six; recorded milestone applause. **See [AUDIO_CREDITS.md](AUDIO_CREDITS.md)** for creator, CC BY 4.0 license and edits. Black Soul Ultimate uses a separate CC0 recorded transition. Other HeroBoard effects/music remain browser synthesis. No AI-generated files were added.
 

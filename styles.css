@@ -419,3 +419,5 @@ a {color:#66e7db;}
 .setting select {width:100%;min-width:0;}
 #main {scroll-margin-top:90px;}
 @media(max-width:600px){.setting{grid-template-columns:1fr;gap:10px;}}
+/* aria-disabled preserves screen-reader/keyboard focus while turn input is locked. */
+#snakes-roll[aria-disabled="true"] {opacity:.65;cursor:not-allowed;}

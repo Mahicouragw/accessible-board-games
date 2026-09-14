@@ -9,18 +9,19 @@ const w = dom.window, d = w.document;
 w.scrollTo=()=>{};w.HTMLMediaElement.prototype.play=()=>Promise.resolve();w.HTMLMediaElement.prototype.pause=()=>{};w.HTMLMediaElement.prototype.load=()=>{};
 w.onerror = (m) => console.log('WINERROR', m);
 w.requestAnimationFrame = (cb) => setTimeout(() => cb(), 0);
-w.speechSynthesis = { getVoices: () => [], speak: () => {}, cancel: () => {} };
+if(w.HTMLCanvasElement)w.HTMLCanvasElement.prototype.getContext=function(){return new Proxy({canvas:{}},{get:(t,k)=>k in t?t[k]:(t[k]=()=>{}),set:(t,k,v)=>(t[k]=v,true)});};
+w.speechSynthesis = { getVoices: () => [], speak: (u) => queueMicrotask(()=>u.onend?.()), cancel: () => {} };
 w.SpeechSynthesisUtterance = function (t) { this.text = t; };
 if (!w.BroadcastChannel) w.BroadcastChannel = class { constructor() {} postMessage() {} set onmessage(f) {} };
 for (const f of ['js/audio.js', 'js/store.js', 'js/net.js', 'js/common.js', 'js/cricket-room.js', 'js/cricket.js', 'js/snakes.js', 'js/ludo.js', 'js/carrom.js', 'js/rooms.js', 'js/app.js']) w.eval(fs.readFileSync(path.join(ROOT, f), 'utf8'));
 
 const G = w.HeroGames;
 const api = { profile: { id: 'HB-X', name: 'Tester' }, store: w.HeroStore, net: w.HeroNet, audio: w.HeroAudio, ui: w.HeroUI };
-function mk(cfg) { const el = d.createElement('div'); d.body.appendChild(el); const c = G[cfg.game].start(el, cfg.cfg, api); return { el, c }; }
+function mk(cfg) { w.HeroAudio.resumeAll();const el = d.createElement('div'); d.body.appendChild(el); const c = G[cfg.game].start(el, cfg.cfg, api); return { el, c }; }
 let pass = true;
 const jobs = [];
 const T = (n, f) => {
-  jobs.push(Promise.resolve().then(f).then(() => console.log('PASS', n)).catch((e) => { pass = false; console.log('FAIL', n, '->', e && e.message); }));
+  jobs.push(async()=>{try{await f();console.log('PASS',n);}catch(e){pass=false;console.log('FAIL',n,'->',e.message);}});
 };
 
 T('cricket AI start', () => { const { el, c } = mk({ game: 'cricket', cfg: { mode: 'ai', level: 2, overs: 2, squad: 1, youBatFirst: true } }); if (!el.querySelector('.numpad')) throw new Error('no numpad'); c.destroy(); });
@@ -29,7 +30,7 @@ T('cricket AI bowl pick works', () => { const { c } = mk({ game: 'cricket', cfg:
 T('cricket squad roster', () => { const { c } = mk({ game: 'cricket', cfg: { mode: 'ai', level: 3, overs: 2, squad: 3, youBatFirst: true } }); c.submit('bat', 5, 'agg'); if (c.state.sides.A.roster.length !== 3) throw new Error('roster'); c.destroy(); });
 
 T('snakes local start', () => { const { el, c } = mk({ game: 'snakes', cfg: { mode: 'local', players: '2', ai: '0' } }); if (!el.querySelector('.board')) throw new Error('no board'); c.destroy(); });
-T('snakes roll advances', async () => { const { c } = mk({ game: 'snakes', cfg: { mode: 'local', players: '2', ai: '0' } }); c.roll(); await new Promise(r => setTimeout(r, 3200)); if (!c.state.players.some(p => p.pos > 0)) throw new Error('no move'); c.destroy(); });
+T('snakes roll advances', async () => { const { c } = mk({ game: 'snakes', cfg: { mode: 'local', players: '2', ai: '0' } }); await c.ready;c.roll(); await new Promise(r => setTimeout(r, 3200)); if (!c.state.players.some(p => p.pos > 0)) throw new Error('no move'); c.destroy(); });
 
 T('ludo local start', () => { const { el, c } = mk({ game: 'ludo', cfg: { mode: 'local', players: '2' } }); if (!el.querySelector('.board')) throw new Error('no board'); c.destroy(); });
 T('ludo roll', async () => { const { c } = mk({ game: 'ludo', cfg: { mode: 'local', players: '2' } }); c.roll(); await new Promise(r => setTimeout(r, 700)); if (c.state.lastRoll < 1 || c.state.lastRoll > 6) throw new Error('bad roll'); c.destroy(); });
@@ -45,7 +46,7 @@ T('local room create+join', async () => {
   if (!w.HeroNet.currentRoom() || w.HeroNet.currentRoom().members.length < 2) throw new Error('members not joined');
 });
 
-Promise.all(jobs).then(() => {
+(async()=>{for(const job of jobs)await job();})().then(() => {
   console.log(pass ? '\nENGINES ALL PASS' : '\nENGINES SOME FAIL');
   process.exit(pass ? 0 : 1);
 });

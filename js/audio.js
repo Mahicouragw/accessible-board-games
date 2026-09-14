@@ -121,6 +121,16 @@
      SFX library — each returns immediately; all are royalty-free.
      --------------------------------------------------------------------- */
   const sfx = {
+    // Neutral match-start cue: two gentle ascending taps, not a result fanfare.
+    gameStart() {
+      blip({type:'triangle',freq:392,dur:0.11,peak:0.22});
+      blip({type:'triangle',freq:523.25,dur:0.14,peak:0.22,delay:0.14});
+    },
+    // Paced dice-only cue; the controller waits for this phase before speech.
+    dicePaced() {
+      for(let i=0;i<7;i++) blip({type:'triangle',freq:160+(i%3)*32,dur:0.055,peak:0.22,delay:i*0.10,filter:'highpass',filterFreq:800});
+      blip({type:'triangle',freq:125,endFreq:65,dur:0.13,peak:0.3,delay:0.72});
+    },
     // Dice bouncing in a cup / shake
     diceShake() {
       for (let i = 0; i < 6; i++) {
@@ -299,7 +309,7 @@
     recordedPlayers.forEach(p=>{p.pause();p.currentTime=0;});
     sources.forEach(n=>{try{n.stop();n.disconnect();}catch(e){}});sources.clear();
     A.stopMusic();
-    try { if (global.speechSynthesis) global.speechSynthesis.cancel(); } catch (e) {}
+    A.cancelSpeech();
     try { if (ctx && master) master.gain.value = 0; } catch (e) {}
     try { if (ctx && ctx.state === 'running') ctx.suspend(); } catch (e) {}
   };
@@ -313,23 +323,44 @@
   /* ---------------------------------------------------------------------
      Speech — window.speechSynthesis wrapper with guidance + queue.
      --------------------------------------------------------------------- */
-  let queued = false;
-  A.speak = function (text, opts) {
-    if (!A.settings.voice||stopped||document.hidden) return;
-    try {
-      const synth = global.speechSynthesis;
-      if (!synth) return;
-      synth.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = A.voiceRate; u.pitch = A.voicePitch;
-      u.lang = opts && opts.lang ? opts.lang : 'en-US';
-      u.volume = 1;
-      // Prefer an English voice if available.
-      const voices = synth.getVoices();
-      const en = voices.filter((v) => /^en[-_]/.test(v.lang));
-      if (en.length) u.voice = en[0];
-      synth.speak(u);
-    } catch (e) { /* speech not available — ignore */ }
+  let speechFinish = null;
+  A.cancelSpeech = function () {
+    if(speechFinish)speechFinish(false);
+    try { global.speechSynthesis?.cancel(); } catch(e) {}
+  };
+  function speakAsync(text, opts = {}) {
+    A.cancelSpeech();
+    if(stopped||document.hidden||opts.signal?.aborted)return Promise.resolve(false);
+    if(!A.settings.voice||!global.speechSynthesis||!global.SpeechSynthesisUtterance)return Promise.resolve(true);
+    return new Promise(resolve=>{
+      let timer=null,settled=false;
+      const finish=ok=>{
+        if(settled)return;settled=true;clearTimeout(timer);
+        opts.signal?.removeEventListener('abort',abort);
+        if(speechFinish===finish)speechFinish=null;
+        resolve(ok);
+      };
+      const abort=()=>{finish(false);try{global.speechSynthesis.cancel();}catch(e){}};
+      speechFinish=finish;
+      opts.signal?.addEventListener('abort',abort,{once:true});
+      try {
+        const synth=global.speechSynthesis,u=new global.SpeechSynthesisUtterance(text);
+        u.rate=A.voiceRate;u.pitch=A.voicePitch;u.lang=opts.lang||'en-US';u.volume=1;
+        const voices=synth.getVoices(),en=voices.filter(v=>/^en[-_]/.test(v.lang));
+        if(en.length)u.voice=en[0];
+        u.onend=()=>finish(true);
+        // Missing/broken browser voices must not strand an AI turn.
+        u.onerror=()=>finish(true);
+        timer=setTimeout(()=>{try{synth.cancel();}catch(e){}finish(true);},Math.min(30000,Math.max(2500,String(text).length*110)));
+        synth.speak(u);
+      } catch(e) { finish(true); }
+    });
+  }
+  A.speak = function(text,opts){return speakAsync(text,opts);};
+  A.announceAndWait = function(text,opts){
+    const live=document.getElementById('sr-live');
+    if(live&&!document.hidden){live.textContent='';live.textContent=text;}
+    return speakAsync(text,opts);
   };
 
   // High-level announce — writes to live regions + speaks.
@@ -365,7 +396,7 @@
     if (A.settings.music && !musicNodes) A.startMusic();
     if (!A.settings.music) A.stopMusic();
     if(!A.settings.sfx)recordedPlayers.forEach(p=>p.pause());
-    if(!A.settings.voice)try{global.speechSynthesis?.cancel();}catch(e){}
+    if(!A.settings.voice)A.cancelSpeech();
   };
 
   A.unlock = function () { A.resumeAll();ensureCtx(); if (musicNodes) {} };
