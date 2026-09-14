@@ -9,6 +9,8 @@ const dom = new JSDOM(html, { url: 'http://localhost:5500/', pretendToBeVisual: 
 const { window, window: w } = dom;
 const { document: d } = window;
 
+// jsdom does not implement media playback or scrolling; browser tests cover these.
+w.scrollTo=()=>{};w.HTMLMediaElement.prototype.play=()=>Promise.resolve();w.HTMLMediaElement.prototype.pause=()=>{};w.HTMLMediaElement.prototype.load=()=>{};
 window.onerror = (m) => console.log('WINERROR', m);
 window.requestAnimationFrame = (cb) => setTimeout(() => cb(), 0);
 window.cancelAnimationFrame = (id) => clearTimeout(id);
@@ -17,7 +19,7 @@ window.speechSynthesis = { getVoices: () => [], speak: () => {}, cancel: () => {
 window.SpeechSynthesisUtterance = function (t) { this.text = t; };
 if (!window.BroadcastChannel) window.BroadcastChannel = class { constructor() {} postMessage() {} set onmessage(f) {} };
 
-const order = ['js/audio.js', 'js/store.js', 'js/net.js', 'js/common.js', 'js/cricket.js', 'js/snakes.js', 'js/ludo.js', 'js/carrom.js', 'js/rooms.js', 'js/app.js'];
+const order = ['js/audio.js', 'js/store.js', 'js/net.js', 'js/common.js', 'js/cricket-room.js', 'js/cricket.js', 'js/snakes.js', 'js/ludo.js', 'js/carrom.js', 'js/rooms.js', 'js/app.js'];
 for (const f of order) { window.eval(fs.readFileSync(path.join(ROOT, f), 'utf8')); }
 d.dispatchEvent(new window.Event('DOMContentLoaded', { bubbles: true }));
 

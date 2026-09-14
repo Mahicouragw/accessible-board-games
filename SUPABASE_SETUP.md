@@ -1,68 +1,14 @@
-# Supabase setup — real-time online multiplayer
+# Internet rooms: not provisioned
 
-HeroBoard ships with a **zero-config local transport** so everything works
-offline immediately. To make rooms, chat and profiles sync across *devices*,
-connect a Supabase project.
+The shipped, supported room transport is same-browser BroadcastChannel/localStorage. It is a **trusted same-device demo**, not secure cross-device multiplayer. Browser-stored Hero IDs are not authentication.
 
-## 1. Create a project
+The old Supabase transport allowed public state overwrites and is now disabled. Adding an anon key is **not sufficient** to enable it. `supabase/schema.sql` creates the tables and removes the old public-write grants; it deliberately does not grant gameplay access. No live database migration was executed in this workspace. Review and back up your deployment before manually applying lockdown.
 
-1. Create a project at [supabase.com](https://supabase.com).
-2. Copy the **Project URL** and the **anon public key**
-   (`Database → API → Project URL` / `anon public`).
-   The anon key is safe in the browser; access is controlled by RLS.
+Before internet deployment, provide:
+1. Supabase Auth identities mapped to memberships; no self-asserted actor IDs.
+2. Server-side transactional create/join/draft/start/active-player/commit/reveal commands.
+3. Room-scoped RLS reads, constrained chat writes, rate limits and replay protection.
+4. Server-owned match snapshots and a tested disconnect/reconnection policy.
+5. Integration tests with two authenticated devices plus a hostile/spectator client.
 
-## 2. Run the schema
-
-Open **SQL Editor → New query** and paste the contents of
-[`supabase/schema.sql`](supabase/schema.sql), then **Run**.
-
-It creates:
-- `profiles` — unique usernames / hero IDs + duplicate detection.
-- `rooms` — one row per live room; `state` is the authoritative game snapshot.
-- `room_members` — who is in the room, their role + seat (`player` / `spectator`).
-- `messages` — live chat.
-- `matches` — optional cross-device result table for persistent profiles.
-- Indexes, **RLS policies** (permissive demo policy) and the
-  **realtime publication**.
-
-## 3. Point the app at your project
-
-Make sure `index.html` has the Supabase JS CDN tag:
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-```
-
-Then set the keys in **`js/config.js`**:
-
-```js
-window.HEROBOARD_CONFIG = {
-  supabaseUrl:     "https://YOURPROJECT.supabase.co",
-  supabaseAnonKey: "YOUR-ANON-KEY",
-};
-```
-
-> You can also set `window.HEROBOARD_CONFIG` via a `<script>` placed *before*
-> `js/config.js`, or read the values from your host’s environment and inject
-> them at deploy time.
-
-## 4. Verify
-
-- Refresh. The top-right connection chip shows **Online**.
-- In two separate browser instances (different devices), open the site.
-- Create a room on one, join with the code on the other.
-- The host assigns the joiner to a seat and starts; both see updates in about
-  the latency of the realtime channel.
-
-## RLS note
-
-`schema.sql` ships with `using (true)` / `with check (true)` policies **only to
-make the demo work with the anonymous key**, matching the existing project’s
-approach. For production, restrict to authenticated roles and scope reads to
-the user’s own data. Replace the placeholder policies before deployment.
-
-## Hosting
-
-This is a fully static app — deploy `index.html`, `styles.css`, `js/` and the
-docs to any static host (Vercel, Netlify, GitHub Pages, Cloudflare Pages,
-Supabase Hosting). Use `scripts/dev.js` locally.
+`js/cricket-room.js` contains testable command/rule validation and commit/reveal logic, but moving it to a server requires deriving the actor from authentication, not the request body. Never deploy `USING (true)` public write policies or put a service-role key in browser JavaScript.

@@ -1,16 +1,26 @@
 {
   "name": "heroboard-accessible-board-games",
   "version": "2.0.0",
-  "description": "HeroBoard — a zero-copyright, audio-first multiplayer board-games hub (Hand Cricket, Snakes & Ladders, Ludo, Carrom) with realtime rooms via Supabase.",
+  "description": "HeroBoard \u2014 accessible games with licensed cricket recordings, captain-drafted trusted-device rooms and AI.",
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "test": "node test/smoke.js && node test/online.js",
+    "test": "node test/smoke.js && node test/online.js && node test/cricket-rules.js",
     "test:engines": "node test/engines.js",
     "serve": "npx serve .",
     "start": "node scripts/dev.js"
   },
-  "keywords": ["board-games", "audio-first", "accessibility", "multiplayer", "supabase", "realtime", "hand-cricket", "ludo", "carrom"],
+  "keywords": [
+    "board-games",
+    "audio-first",
+    "accessibility",
+    "multiplayer",
+    "supabase",
+    "realtime",
+    "hand-cricket",
+    "ludo",
+    "carrom"
+  ],
   "license": "MIT",
   "author": "HeroBoard",
   "devDependencies": {

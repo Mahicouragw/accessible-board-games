@@ -75,24 +75,23 @@ create index if not exists profiles_username_idx on public.profiles(username);
 -- Realtime: publish the changing tables. The subscription client listens on
 -- these so spectators + remote players see every change instantly.
 -- ---------------------------------------------------------------------------
-alter publication supabase_realtime add table public.rooms;
-alter publication supabase_realtime add table public.room_members;
-alter publication supabase_realtime add table public.messages;
+-- Add realtime publication tables only with the authenticated backend migration.
+
+
 
 -- ---------------------------------------------------------------------------
--- Row Level Security.
--- NOTE: this is a deliberately permissive demo policy so the anon key can
--- create/join rooms and chat. For production you should lock this down to
--- authenticated roles and scope reads to the user's own data.
--- ---------------------------------------------------------------------------
-alter table public.profiles     enable row level security;
-alter table public.rooms        enable row level security;
-alter table public.room_members enable row level security;
-alter table public.messages     enable row level security;
-alter table public.matches      enable row level security;
-
-create or replace policy "allow all profiles"     on public.profiles     for all using (true) with check (true);
-create or replace policy "allow all rooms"        on public.rooms        for all using (true) with check (true);
-create or replace policy "allow all room_members" on public.room_members for all using (true) with check (true);
-create or replace policy "allow all messages"     on public.messages     for all using (true) with check (true);
-create or replace policy "allow all matches"      on public.matches      for all using (true) with check (true);
+-- Row Level Security: safe lockdown, NOT a working internet-room backend.
+-- Never grant public clients direct room-state writes. The previous demo policies
+-- let any caller impersonate members and overwrite scores. Run this manually in
+-- an existing project to remove those policies; no remote database was changed here.
+-- Internet play requires authenticated membership, transactional commands,
+-- server-generated outcomes and commit/reveal validation before it can be enabled.
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['profiles','rooms','room_members','messages','matches'] LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I','allow all '||t,t);
+    EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated',t);
+  END LOOP;
+END $$;

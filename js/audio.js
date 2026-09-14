@@ -1,6 +1,6 @@
 /* ==========================================================================
-   audio.js — Zero-copyright audio engine for HeroBoard
-   - Synthesises every sound with the Web Audio API (no assets to license).
+   audio.js — Audio engine for HeroBoard — licensed recordings + synthesis
+   - Uses licensed crowd recordings for cricket; other cues use Web Audio.
    - Speaks UI/game events with window.speechSynthesis.
    - Supports 3D spatial panning, SFX/music/voice toggles, and a calm BGM loop.
    ========================================================================== */
@@ -24,9 +24,23 @@
   let sfxBus = null;
   let musicBus = null;
   let musicNodes = null;
+  let stopped=false;
+  const sources=new Set();
+  const recordedPlayers=[];
+  const recorded={four:'boundary-four',five:'five-runs',six:'maximum-six',applause:'milestone'};
+  function track(node){sources.add(node);node.onended=()=>{sources.delete(node);try{node.disconnect();}catch(e){}};return node;}
+  function recording(name){
+    if(!recorded[name])return false;
+    let player=recordedPlayers.find(p=>p.paused||p.ended);
+    if(!player&&recordedPlayers.length<4){player=new Audio();recordedPlayers.push(player);}
+    if(!player)player=recordedPlayers[0];
+    player.pause();player.src='assets/audio/'+recorded[name]+'.mp3';player.currentTime=0;player.volume=0.65;
+    Promise.resolve(player.play()).catch(()=>{});return true;
+  }
 
   // Ensure the AudioContext is created after a user gesture (autoplay policy).
   function ensureCtx() {
+    if(stopped||document.hidden)return null;
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return ctx; }
     const AC = global.AudioContext || global.webkitAudioContext;
     if (!AC) return null;
@@ -50,7 +64,7 @@
     const c = ensureCtx();
     if (!c) return;
     const t = c.currentTime + (opts.delay || 0);
-    const osc = c.createOscillator();
+    const osc = track(c.createOscillator());
     const gain = c.createGain();
     const filt = c.createBiquadFilter();
 
@@ -94,7 +108,7 @@
       const d = noiseBuf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     }
-    const src = c.createBufferSource();
+    const src = track(c.createBufferSource());
     src.buffer = noiseBuf; src.loop = true;
     const g = c.createGain();
     g.gain.value = 0;
@@ -119,7 +133,7 @@
     },
     // Number click 1..6 — ascending pitch feels like counting.
     click(n) {
-      blip({ type: 'sine', freq: 330 + (n || 1) * 60, dur: 0.07, peak: 0.4 });
+      blip({ type: 'sine', freq: 330 + (Number.isFinite(n) ? n : 1) * 60, dur: 0.07, peak: 0.4 });
     },
     tic() { blip({ type: 'sine', freq: 700, dur: 0.05, peak: 0.3 }); },
     // Wooden thud (carrom striker / chess piece)
@@ -256,7 +270,7 @@
     musicNodes = [];
     let time = t;
     notes.forEach((f, i) => {
-      const osc = c.createOscillator();
+      const osc = track(c.createOscillator());
       osc.type = 'sine'; osc.frequency.value = f;
       const g = c.createGain();
       g.gain.setValueAtTime(0.0001, time);
@@ -281,6 +295,9 @@
      loop, or tail keeps playing in the background.
      --------------------------------------------------------------------- */
   A.stopAll = function () {
+    stopped=true;
+    recordedPlayers.forEach(p=>{p.pause();p.currentTime=0;});
+    sources.forEach(n=>{try{n.stop();n.disconnect();}catch(e){}});sources.clear();
     A.stopMusic();
     try { if (global.speechSynthesis) global.speechSynthesis.cancel(); } catch (e) {}
     try { if (ctx && master) master.gain.value = 0; } catch (e) {}
@@ -288,6 +305,7 @@
   };
   // Re-arm audio after a stop (e.g. the tab becomes visible again).
   A.resumeAll = function () {
+    if(document.hidden)return;stopped=false;
     try { if (ctx && master) master.gain.value = 0.9; } catch (e) {}
     try { if (ctx && ctx.state === 'suspended') ctx.resume(); } catch (e) {}
   };
@@ -297,7 +315,7 @@
      --------------------------------------------------------------------- */
   let queued = false;
   A.speak = function (text, opts) {
-    if (!A.settings.voice) return;
+    if (!A.settings.voice||stopped||document.hidden) return;
     try {
       const synth = global.speechSynthesis;
       if (!synth) return;
@@ -330,6 +348,8 @@
      Public API.
      --------------------------------------------------------------------- */
   A.play = function (name, opts) {
+    if(!A.settings.sfx||stopped||document.hidden)return;
+    if(recording(name))return;
     const c = ensureCtx();
     if (!c) return;
     if (!A.settings.sfx) return;
@@ -344,9 +364,11 @@
     if (ctx && musicBus) musicBus.gain.value = A.settings.music ? 0.35 : 0;
     if (A.settings.music && !musicNodes) A.startMusic();
     if (!A.settings.music) A.stopMusic();
+    if(!A.settings.sfx)recordedPlayers.forEach(p=>p.pause());
+    if(!A.settings.voice)try{global.speechSynthesis?.cancel();}catch(e){}
   };
 
-  A.unlock = function () { ensureCtx(); if (musicNodes) {} };
+  A.unlock = function () { A.resumeAll();ensureCtx(); if (musicNodes) {} };
   A.sfx = sfx;
 
   // Expose a couple of helpers used by games.

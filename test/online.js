@@ -1,50 +1,49 @@
-/* Online Hand Cricket — host-authoritative resolution test (single window). */
-const fs = require('fs');
-const path = require('path');
-const { JSDOM } = require('jsdom');
-const ROOT = path.join(__dirname, '..');
-const dom = new JSDOM(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8'), { url: 'http://localhost/', pretendToBeVisual: true, runScripts: 'dangerously' });
-const w = dom.window, d = w.document;
-w.onerror = (m) => console.log('WINERROR', m);
-w.requestAnimationFrame = (cb) => setTimeout(() => cb(), 0);
-w.speechSynthesis = { getVoices: () => [], speak: () => {}, cancel: () => {} };
-w.SpeechSynthesisUtterance = function (t) { this.text = t; };
-if (!w.BroadcastChannel) w.BroadcastChannel = class { constructor() {} postMessage() {} set onmessage(f) {} };
-for (const f of ['js/audio.js', 'js/store.js', 'js/net.js', 'js/common.js', 'js/cricket.js', 'js/snakes.js', 'js/ludo.js', 'js/carrom.js', 'js/rooms.js', 'js/app.js']) w.eval(fs.readFileSync(path.join(ROOT, f), 'utf8'));
-
-const G = w.HeroGames, net = w.HeroNet, store = w.HeroStore;
-const api = { profile: { id: 'HB-HOST', name: 'Host' }, store, net, audio: w.HeroAudio, ui: w.HeroUI };
-
-async function main() {
-  const res = await net.createRoom({ game: 'cricket', meta: { seats: 2 }, adminId: 'HB-HOST', members: [{ id: 'HB-HOST', name: 'Host', role: 'player', slot: 0 }], state: { running: false } });
-  if (res.error) throw new Error('create failed ' + res.error);
-  if (!net.currentRoom()) throw new Error('currentRoom undefined after create');
-
-  const el = d.createElement('div'); d.body.appendChild(el);
-  const c = G.cricket.start(el, { mode: 'online', online: { code: res.room.code, mySide: 'A', myIndex: 0 }, roster: [{ id: 'HB-HOST', name: 'Host', slot: 0 }, { id: 'HB-GUEST', name: 'Guest', slot: 1 }], level: 2, overs: 1, squad: 1 }, api);
-
-  c.submit('bat', 4, 'agg');
-  const st0 = net.currentRoom().state;
-  if (!st0.mailbox || !st0.mailbox.bat) throw new Error('host bat pick not in mailbox');
-
-  const room = net.currentRoom();
-  room.state.mailbox.bowl = { n: 3, delivery: 'nor' };
-  net.roomState(room.state);
-
-  await new Promise((r) => setTimeout(r, 250));
-  if (c.state.hist.length < 1) throw new Error('host did not resolve the ball: hist=' + c.state.hist.length);
-  const snap = net.currentRoom().state.snap;
-  if (!snap || snap.ballNo !== 1) throw new Error('snapshot not advanced: ' + JSON.stringify(snap && snap.ballNo));
-  if (net.currentRoom().state.mailbox.bat || net.currentRoom().state.mailbox.bowl) throw new Error('mailbox not cleared');
-
-  // Guest hydrates from the snapshot the host broadcast.
-  const el2 = d.createElement('div'); d.body.appendChild(el2);
-  const g2 = G.cricket.start(el2, { mode: 'online', online: { code: res.room.code, mySide: 'B', myIndex: 1 }, roster: [{ id: 'HB-HOST', name: 'Host', slot: 0 }, { id: 'HB-GUEST', name: 'Guest', slot: 1 }], level: 2, overs: 1, squad: 1 }, api);
-  await new Promise((r) => setTimeout(r, 50));
-  if (g2.state.ballNo !== c.state.ballNo) throw new Error('guest did not hydrate: ' + g2.state.ballNo + ' vs ' + c.state.ballNo);
-
-  console.log('ONLINE CRICKET PASS');
-  c.destroy(); g2.destroy();
-  process.exit(0);
+/* Real transport in ten isolated DOM clients with shared storage/channel.
+ * This verifies trusted same-device rooms, not a deployed internet backend. */
+const {JSDOM}=require('jsdom'),fs=require('fs'),assert=require('node:assert/strict');
+const {webcrypto}=require('node:crypto');
+const shared=new Map(),channels=new Set(),windows=[];
+class Channel{constructor(){channels.add(this);}postMessage(data){for(const c of channels)if(c!==this)queueMicrotask(()=>c.onmessage?.({data:structuredClone(data)}));}close(){channels.delete(this);}}
+function client(){const dom=new JSDOM('<body><div id="game"></div></body>',{url:'https://example.test',runScripts:'outside-only',pretendToBeVisual:true});const w=dom.window;windows.push(w);w.BroadcastChannel=Channel;w.TextEncoder=TextEncoder;Object.defineProperty(w,'crypto',{value:webcrypto});Object.defineProperty(w,'localStorage',{value:{getItem:k=>shared.get(k)||null,setItem:(k,v)=>shared.set(k,v),removeItem:k=>shared.delete(k)}});for(const file of ['net','common','cricket-room','cricket'])w.eval(fs.readFileSync(__dirname+'/../js/'+file+'.js','utf8'));return w;}
+async function main(){
+ const clients=Array.from({length:11},client),host=clients[0].HeroNet;
+ const room=(await host.createRoom({game:'cricket',adminId:'p0',members:[{id:'p0',name:'Goldfish',role:'player',slot:0}],meta:{overs:1,wickets:10,squad:5},state:{}})).room;
+ for(let i=1;i<clients.length;i++)await clients[i].HeroNet.joinRoom(room.code,{id:'p'+i,name:'Player '+i,role:'spectator',slot:null});
+ const action=(i,a)=>clients[i].HeroNet.cricketAction(a);
+ const ok=async(i,a)=>assert.equal((await action(i,a)).error,null);
+ const denied=async(i,a)=>assert.ok((await action(i,a)).error);
+ await denied(2,{type:'setup'});
+ await ok(0,{type:'setup',nameA:'India',nameB:'Sri Lanka',captainA:'p0',captainB:'p1',size:5});
+ await denied(1,{type:'draft',player:'p2'});
+ for(let i=2;i<10;i++)await ok(i%2,{type:'draft',player:'p'+i});
+ assert.equal(host.currentRoom().state.cricket.phase,'ready');
+ await denied(2,{type:'start'});await ok(0,{type:'start'});
+ await denied(0,{type:'active',team:'B',role:'bat',player:'p1'});
+ await denied(0,{type:'active',team:'A',role:'bat',player:'p1'});
+ await ok(0,{type:'active',team:'A',role:'bat',player:'p2'});
+ const staleRoom=structuredClone(host.currentRoom());
+ const C=clients[0].HeroCricketRoom,nonce='a'.repeat(32),hash=await C.digest(room.code,0,'bat',4,nonce);
+ await denied(10,{type:'commit',ball:0,role:'bat',hash});
+ await denied(0,{type:'commit',ball:0,role:'bat',hash});
+ await ok(2,{type:'commit',ball:0,role:'bat',hash});
+ await denied(2,{type:'commit',ball:0,role:'bat',hash});
+ await denied(0,{type:'active',team:'A',role:'bat',player:'p0'});
+ await denied(2,{type:'reveal',ball:0,role:'bat',n:4,nonce});
+ const bowlHash=await C.digest(room.code,0,'bowl',3,nonce);
+ await ok(1,{type:'commit',ball:0,role:'bowl',hash:bowlHash});
+ await denied(2,{type:'reveal',ball:0,role:'bat',n:6,nonce});
+ await ok(2,{type:'reveal',ball:0,role:'bat',n:4,nonce});await ok(1,{type:'reveal',ball:0,role:'bowl',n:3,nonce});
+ for(const w of clients){assert.equal(w.HeroNet.currentRoom().state.cricket.match.sides.A.runs,4);assert.equal(w.HeroNet.currentRoom().state.cricket.match.ballNo,1);}
+ await denied(2,{type:'reveal',ball:0,role:'bat',n:4,nonce});
+ for(const channel of channels){channel.postMessage({type:'room:update',room:staleRoom});break;}
+ await new Promise(r=>setTimeout(r,0));assert.equal(host.currentRoom().state.cricket.match.ballNo,1);
+ // Controllers auto-reveal only after both clients commit. Spectator has no pad.
+ const controllers=clients.map((w,i)=>w.HeroGames.cricket.start(w.document.getElementById('game'),{mode:'online',overs:1,wickets:10,squad:5},{profile:{id:'p'+i},net:w.HeroNet}));
+ assert.equal(clients[10].document.querySelector('.numpad'),null);
+ await controllers[2].submit('bat',5);await controllers[1].submit('bowl',2);
+ await new Promise(r=>setTimeout(r,50));
+ assert.equal(host.currentRoom().state.cricket.match.ballNo,2);assert.equal(host.currentRoom().state.cricket.match.sides.A.runs,9);
+ controllers.forEach(c=>c.destroy());clients.forEach(w=>w.HeroNet.leave());windows.forEach(w=>w.close());
+ console.log('CAPTAIN ROOMS PASS: 11 clients; 5-v-5 draft, roles, spectator, commit/reveal, tampering, stale ball, synchronized score.');
 }
-main().catch((e) => { console.log('ONLINE CRICKET FAIL', e.message); process.exit(1); });
+main().catch(e=>{console.error(e);windows.forEach(w=>w.close());process.exit(1);});

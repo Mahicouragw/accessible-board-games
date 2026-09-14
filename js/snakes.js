@@ -53,7 +53,7 @@
       state.players = cfg.roster.map((r, i) => ({ name: r.name, pos: 0, color: COLORS[i % 4], ai: !!r.ai, id: r.id }));
     }
     const nPlayers = state.players.length;
-    const myIndex = online ? state.players.findIndex((p) => p.id === api.profile && api.profile.id) : -1;
+    const myIndex = online ? state.players.findIndex((p) => api.profile && p.id === api.profile.id) : -1;
     const whoAmI = online ? (online.myIndex != null ? online.myIndex : myIndex) : null;
 
     getStateRemote();

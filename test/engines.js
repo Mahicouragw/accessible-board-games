@@ -5,12 +5,14 @@ const { JSDOM } = require('jsdom');
 const ROOT = path.join(__dirname, '..');
 const dom = new JSDOM(fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8'), { url: 'http://localhost/', pretendToBeVisual: true, runScripts: 'dangerously' });
 const w = dom.window, d = w.document;
+// jsdom does not implement media playback or scrolling; browser tests cover these.
+w.scrollTo=()=>{};w.HTMLMediaElement.prototype.play=()=>Promise.resolve();w.HTMLMediaElement.prototype.pause=()=>{};w.HTMLMediaElement.prototype.load=()=>{};
 w.onerror = (m) => console.log('WINERROR', m);
 w.requestAnimationFrame = (cb) => setTimeout(() => cb(), 0);
 w.speechSynthesis = { getVoices: () => [], speak: () => {}, cancel: () => {} };
 w.SpeechSynthesisUtterance = function (t) { this.text = t; };
 if (!w.BroadcastChannel) w.BroadcastChannel = class { constructor() {} postMessage() {} set onmessage(f) {} };
-for (const f of ['js/audio.js', 'js/store.js', 'js/net.js', 'js/common.js', 'js/cricket.js', 'js/snakes.js', 'js/ludo.js', 'js/carrom.js', 'js/rooms.js', 'js/app.js']) w.eval(fs.readFileSync(path.join(ROOT, f), 'utf8'));
+for (const f of ['js/audio.js', 'js/store.js', 'js/net.js', 'js/common.js', 'js/cricket-room.js', 'js/cricket.js', 'js/snakes.js', 'js/ludo.js', 'js/carrom.js', 'js/rooms.js', 'js/app.js']) w.eval(fs.readFileSync(path.join(ROOT, f), 'utf8'));
 
 const G = w.HeroGames;
 const api = { profile: { id: 'HB-X', name: 'Tester' }, store: w.HeroStore, net: w.HeroNet, audio: w.HeroAudio, ui: w.HeroUI };

@@ -21,11 +21,12 @@
   /* ------------------------------------------------------------------ */
   function $(id) { return document.getElementById(id); }
   function show(id) {
+    if(current==='game'&&id!=='game'&&activeGameController){activeGameController.destroy?.();activeGameController=null;audio.stopAll();net.leave();pendingOnline=null;}
     Object.keys(screens).forEach((k) => { screens[k].hidden = k !== id; });
     current = id;
     if (id === 'game' && $('btn-back')) $('btn-back').hidden = false;
-    if (id !== 'welcome') { if ($('btn-back')) $('btn-back').hidden = (id === 'game') ? false : (id === 'hub' ? true : true); }
-    try { $('main').focus(); } catch (e) {}
+    if (id !== 'welcome') { if ($('btn-back')) $('btn-back').hidden = (id === 'hub'); }
+    try { $('main').focus({preventScroll:true});window.scrollTo(0,0); } catch (e) {}
     // speak the screen
     if (id === 'welcome') audio.announce('Welcome to HeroBoard. Choose an option to begin.');
   }
@@ -33,7 +34,7 @@
   function goBack() {
     audio.play('back');
     if (current === 'game') { exitGame(); }
-    else if (current === 'room') { net.leave(); show('setup'); }
+    else if (current === 'room') { roomController?.destroy?.();pendingOnline=null;net.leave(); show('setup'); }
     else if (current === 'setup') show('hub');
     else if (current === 'settings' || current === 'profile') show('hub');
     else show('welcome');
@@ -57,7 +58,7 @@
       audio.unlock();
       const p = $('about-panel'); p.hidden = !p.hidden;
       audio.play('select');
-      if (!p.hidden) audio.announce('About HeroBoard. A zero copyright, audio first multiplayer board games hub.');
+      if (!p.hidden) audio.announce('About HeroBoard. An audio first board games hub with licensed recordings.');
     });
     // update stats on welcome
     refreshWelcomeStats();
@@ -171,8 +172,14 @@
     // game options
     const cfg = {};
     (g.options || []).forEach((o) => cfg[o.key] = o.default);
+    try{const saved=JSON.parse(localStorage.getItem('heroboard.setup.'+gameId)||'{}');for(const o of g.options||[]){const value=saved[o.key];if(o.type==='select'&&o.options.some(([v])=>String(v)===String(value)))cfg[o.key]=value;else if(o.type==='range'&&Number.isFinite(value)&&value>=o.min&&value<=o.max)cfg[o.key]=value;}}catch(e){}
     const optsBox = U.el('div');
-    (g.options || []).forEach((o) => optsBox.appendChild(renderOption(o, cfg)));
+    (g.options || []).forEach(o=>{
+      const field=renderOption(o,cfg);
+      if(gameId==='cricket'&&['wickets','overs'].includes(o.key)){
+        const box=U.el('details',{class:'option-collapse'});const summary=U.el('summary',null,[o.label+' — '+cfg[o.key]]);box.appendChild(summary);box.appendChild(field);field.addEventListener('change',()=>{summary.textContent=o.label+' — '+cfg[o.key];});optsBox.appendChild(box);
+      }else optsBox.appendChild(field);
+    });
     body.appendChild(U.el('h3', null, ['Match setup']));
     body.appendChild(optsBox);
 
@@ -182,7 +189,7 @@
     const modeChoices = [
       { id: 'ai', label: '🤖 vs AI' },
       { id: 'local', label: '🖐 Local pass-&-play' },
-      { id: 'online', label: '🌐 Online multiplayer' },
+      { id: 'online', label: net.online()?'Internet rooms unavailable':'Same-device rooms' },
     ];
     let mode = 'ai';
     modeChoices.forEach((m) => {
@@ -197,6 +204,7 @@
     });
     body.appendChild(modeSeg);
 
+    body.addEventListener('change',()=>{try{localStorage.setItem('heroboard.setup.'+gameId,JSON.stringify(cfg));}catch(e){}});
     // online controls (hidden unless online)
     const onlineBox = U.el('div', { id: 'online-box' });
     const row = U.el('div', { class: 'roll-row' });
@@ -212,7 +220,7 @@
       promptJoin(gameId, cfg);
     });
     row.appendChild(createBtn); row.appendChild(joinBtn);
-    onlineBox.appendChild(U.el('p', { class: 'hint' }, ['Host a room and share the code, or enter a friend’s code. Up to ' + numSeats(gameId, cfg) + ' players.']));
+    onlineBox.appendChild(U.el('p', { class: 'hint' }, ['Rooms currently work between tabs in the same browser on this device, not over the internet. For room tests use different player profiles in each tab. Cricket captains can draft up to 11 players per team.']));
     onlineBox.appendChild(row);
     onlineBox.hidden = true;
     body.appendChild(onlineBox);
@@ -244,13 +252,13 @@
     if (o.hint) text.appendChild(U.el('span', { class: 'hint' }, [o.hint]));
     field.appendChild(text);
     if (o.type === 'select') {
-      const sel = U.el('select');
+      const sel = U.el('select',{'aria-label':o.label});
       (o.options || []).forEach(([v, l]) => {
         const opt = U.el('option', { value: v }, [l]);
         if (String(v) === String(cfg[o.key])) opt.selected = true;
         sel.appendChild(opt);
       });
-      sel.addEventListener('change', () => { cfg[o.key] = sel.value; audio.play('select'); });
+      sel.addEventListener('change', () => { cfg[o.key] = sel.value; audio.play('select');U.say(o.label+': '+sel.options[sel.selectedIndex].textContent); });
       field.appendChild(sel);
     } else if (o.type === 'range') {
       const rng = U.el('input', { type: 'range', min: String(o.min), max: String(o.max), value: String(cfg[o.key]), 'aria-label': o.label });
@@ -269,16 +277,18 @@
   }
 
   /* ------------------------- ROOM ---------------------------------- */
+  let roomController=null;
   function openRoom(gameId, cfg, isAdmin, code) {
+    roomController?.destroy?.();
     show('room');
     const mount = ensureRoomMount();
     const me = { id: profile.id, name: profile.name };
     if (isAdmin) U.say('Room created. Share the code with a friend.');
     else U.say('Joining room ' + code + '. You are in the audience until a seat opens.');
-    global.HeroRooms.mount(mount, {
+    roomController=global.HeroRooms.mount(mount, {
       game: gameId, meta: cfg, me, isAdmin, code,
       onStart: (c) => launchGame(gameId, c, profile),
-      onLeave: () => { show('hub'); renderHub(); },
+      onLeave: () => { roomController?.destroy?.();pendingOnline=null;show('hub'); renderHub(); },
     });
     pendingOnline = { game: gameId, cfg, code: isAdmin ? null : code };
     $('btn-back').hidden = false;
@@ -413,6 +423,9 @@
   function launchGame(gameId, cfg, me) {
     const g = global.HeroGames[gameId];
     if (!g) return;
+    roomController?.destroy?.();roomController=null;
+    activeGameController?.destroy?.();activeGameController=null;
+    audio.resumeAll();
     currentGame = gameId;
     show('game');
     const stage = $('game-stage');
@@ -434,6 +447,7 @@
   }
 
   function exitGame() {
+    net.leave();pendingOnline=null;
     audio.stopAll(); // kill music/SFX/speech the moment the game screen closes
     try { if (activeGameController && activeGameController.destroy) activeGameController.destroy(); } catch (e) {}
     activeGameController = null;
@@ -448,15 +462,7 @@
       if (!pendingOnline || !pendingOnline.code || current !== 'room' || activeGameController) return;
       const room = net.currentRoom && net.currentRoom();
       if (!room) return;
-      const players = room.members.filter((m) => m.role === 'player').sort((a, b) => (a.slot || 0) - (b.slot || 0));
-      const roster = players.map((m) => ({ id: m.id, name: m.name, slot: m.slot }));
-      const myIndex = roster.findIndex((r) => r.id === profile.id);
-      const mySide = (myIndex === 1 && (pendingOnline.game === 'cricket' || pendingOnline.game === 'carrom')) ? 'B' : 'A';
-      const cfg = Object.assign({}, pendingOnline.cfg, {
-        mode: 'online',
-        online: { code: pendingOnline.code, mySide, myIndex },
-        roster,
-      });
+      const cfg = global.HeroRooms.configForRoom(room,profile.id);
       launchGame(pendingOnline.game, cfg, profile);
     });
   }
@@ -509,7 +515,7 @@
 
     // Connection chip
     const chip = $('conn-chip');
-    if (net.online && net.online()) { chip.textContent = 'Online'; chip.classList.add('ok'); }
+    if (net.online && net.online()) { chip.textContent = 'Internet rooms unavailable'; chip.classList.add('ok'); }
     else { chip.textContent = 'Offline demo'; chip.hidden = false; }
 
     // Live voice for static items

@@ -1,17 +1,7 @@
-/* ==========================================================================
-   net.js — Realtime room transport for HeroBoard.
-
-   Two interchangeable transports:
-     • SupabaseRT — real Supabase Postgres + Realtime when HEROBOARD_CONFIG
-       (SUPABASE_URL, SUPABASE_ANON_KEY) is provided. Full cross-device sync.
-     • LocalRT (default) — BroadcastChannel + localStorage. Gives instant
-       "online" behaviour across tabs on one machine and works with ZERO
-       credentials, including the sandboxed preview. Perfect for pass-and-play
-       and local multiplayer testing.
-
-   The rest of the app talks only to `HeroNet.*`, so swapping transports is
-   invisible to the games.
-   ========================================================================== */
+/* Trusted same-device rooms via BroadcastChannel/localStorage.
+ * Not an authenticated internet service. Public Supabase state writes are disabled.
+ * All captain commands are serialized by the host and validated by cricket-room.js.
+ */
 (function (global) {
   'use strict';
 
@@ -32,111 +22,8 @@
      Implementations
      ===================================================================== */
 
-  /* ---------------- Supabase transport ---------------- */
-  function supabaseClient() {
-    if (!H.online()) return null;
-    if (global.supabase && global.supabase.createClient) return global.supabase.createClient(H.config.supabaseUrl, H.config.supabaseAnonKey);
-    // Load supabase-js lazily from CDN if a <script> gate isn't present yet.
-    return null;
-  }
-
-  function makeSupabaseRT() {
-    const sb = supabaseClient();
-    if (!sb) return null;
-    const rt = { type: 'supabase' };
-    let channel = null;
-
-    rt.checkUsername = async function (name) {
-      const { data, error } = await sb.from('profiles').select('username').eq('username', name).limit(1);
-      if (error) return { error: 'Network check unavailable — please retry.' };
-      return { taken: (data && data.length > 0) ? true : false };
-    };
-
-    rt.createRoom = async function (room) {
-      const { data, error } = await sb.from('rooms').insert({
-        code: room.code, game: room.game, meta: room.meta || {},
-        admin_id: room.adminId || null, status: 'lobby',
-      }).select().single();
-      if (error) return { error: 'Could not create room.' };
-      const members = room.members || [];
-      for (const m of members) await sb.from('room_members').insert({
-        room_code: data.code, user_id: m.id, name: m.name, role: m.role, slot: m.slot || null,
-      });
-      rt.room = Object.assign({}, data, { members });
-      rt.listen();
-      return { room: rt.room };
-    };
-
-    rt.joinRoom = async function (code, member) {
-      const { data, error } = await sb.from('rooms').select('*').eq('code', code).maybeSingle();
-      if (error || !data) return { error: 'Room not found. Check the code.' };
-      if (data.status === 'in_progress' && member.role !== 'spectator') return { error: 'This match has already started.' };
-      rt.room = data;
-      rt.member = member;
-      await sb.from('room_members').upsert({
-        room_code: data.code, user_id: member.id, name: member.name, role: member.role, slot: member.slot || null,
-      }, { onConflict: 'room_code,user_id' });
-      rt.listen();
-      rt.refresh();
-      return { room: rt.room };
-    };
-
-    rt.listen = function () {
-      const roomCode = rt.room && rt.room.code;
-      if (!roomCode) return;
-      if (channel) sb.removeChannel(channel);
-      channel = sb.channel('room-' + roomCode, { config: { presence: { key: rt.member ? rt.member.id : 'anon' } } });
-      channel
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'room_members', filter: 'room_code=eq.' + roomCode }, () => rt.refresh())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: 'room_code=eq.' + roomCode }, rt.refreshChat)
-        .on('presence', { event: 'sync' }, () => rt.updatePresence())
-        .subscribe();
-      if (rt.member) channel.track({ id: rt.member.id, name: rt.member.name, role: rt.member.role });
-    };
-
-    rt.updatePresence = function () {
-      const p = channel ? channel.presenceState() : {};
-      emit('presence', p);
-    };
-
-    rt.roomState = function (state) {
-      if (!rt.room) return;
-      rt.room.state = state;
-      sb.from('rooms').update({ state, status: state && state.running ? 'in_progress' : 'lobby' }).eq('code', rt.room.code).then(() => {});
-      emit('state', state);
-    };
-
-    rt.refresh = async function () {
-      const { data } = await sb.from('room_members').select('*').eq('room_code', rt.room.code).order('role', { ascending: false });
-      const specs = (data || []).map((m) => ({ id: m.user_id, name: m.name, role: m.role, slot: m.slot }));
-      rt.room.members = specs;
-      emit('room:update', rt.room);
-    };
-
-    rt.refreshChat = async function () {
-      const { data } = await sb.from('messages').select('*').eq('room_code', rt.room.code).order('created_at', { ascending: true }).limit(200);
-      emit('chat', data || []);
-    };
-
-    rt.sendChat = async function (text) {
-      if (!rt.member) return;
-      await sb.from('messages').insert({ room_code: rt.room.code, user_id: rt.member.id, name: rt.member.name, text });
-      rt.refreshChat();
-    };
-
-    rt.admit = async function (userId, slotOrRole) {
-      if (!rt.room || rt.room.admin_id !== rt.member.id) return;
-      await sb.from('room_members').update({ role: slotOrRole.role || 'player', slot: slotOrRole.slot || null }).eq('room_code', rt.room.code).eq('user_id', userId);
-      rt.refresh();
-    };
-
-    rt.leave = async function () {
-      if (sb && channel) sb.removeChannel(channel);
-      channel = null;
-    };
-
-    return rt;
-  }
+  // The old anonymous public-write Supabase implementation was removed.
+  // Internet transport must use authenticated server commands; see SUPABASE_SETUP.md.
 
   /* ---------------- Local transport (BroadcastChannel) ---------------- */
   function makeLocalRT() {
@@ -145,6 +32,25 @@
     const chan = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('heroboard') : null;
     let room = null;   // { code, game, meta, adminId, status, members:[], state }
     let me = null;
+    let commandQueue = Promise.resolve();
+    const pendingCommands = new Map();
+    function publishRoom(next) {
+      if(room && (next.revision||0)<(room.revision||0))return;
+      const starting = room && room.status !== 'in_progress' && next.status === 'in_progress';
+      room = next; emit('room:update', room); emit('state', room.state);
+      if (starting) emit('game:start', {code:room.code});
+    }
+    function processCommand(msg) {
+      commandQueue = commandQueue.then(async () => {
+        let error = null;
+        try {
+          const next = await global.HeroCricketRoom.reduce(room, msg.actor, msg.action);
+          next.revision=(room.revision||0)+1;publishRoom(next);save(); broadcast({type:'room:update',room});
+        } catch(e) { error = e.message; }
+        const result={type:'cricket:result',code:room.code,id:msg.id,error};
+        broadcast(result); handleMessage(result);
+      });
+    }
 
     // Expose the live room + membership on the transport object.
     Object.defineProperty(st, 'room', { get: () => room, enumerable: true });
@@ -160,15 +66,16 @@
 
     // Merge in an update coming from another tab/peer.
     function handleMessage(msg) {
+      if (!msg || !room) return;
+      if(msg.type==='cricket:command' && msg.code===room.code && me?.id===room.adminId) {processCommand(msg);return;}
+      if(msg.type==='cricket:result' && msg.code===room.code) {
+        const p=pendingCommands.get(msg.id);if(p){clearTimeout(p.timer);pendingCommands.delete(msg.id);p.resolve({error:msg.error});}return;
+      }
       if (msg.type === 'room:update' && room && msg.room && msg.room.code === room.code) {
-        room.members = msg.room.members;
-        room.status = msg.room.status;
-        room.state = msg.room.state;
-        save();
-        emit('room:update', room);
-        emit('state', msg.room.state);
+        publishRoom(msg.room);
       } else if (msg.type === 'state' && room && msg.code === room.code) {
-        room.state = msg.state; save();
+        if((msg.revision||0)<(room.revision||0))return;
+        room.revision=msg.revision||room.revision;room.state = msg.state;
         emit('state', msg.state);
       } else if (msg.type === 'chat' && room && msg.code === room.code) {
         emit('chat', msg.msg);
@@ -178,18 +85,30 @@
       }
     }
     if (chan) { chan.onmessage = (e) => handleMessage(e.data); }
-    window.addEventListener('storage', (e) => {
+    const storageHandler = (e) => {
       if (e.key && e.key.indexOf(KEY + '.') === 0) {
         const data = load(room && room.code);
-        if (data) { room = data; emit('room:update', room); emit('state', data.state); }
+        if (data) { publishRoom(data); }
       }
-    });
+    };
+    window.addEventListener('storage', storageHandler);
+
+    st.cricketAction = function(action) {
+      if(!room||!me)return Promise.resolve({error:'Join a room first.'});
+      const id=global.crypto?.randomUUID?.() || String(Date.now())+Math.random();
+      return new Promise(resolve=>{
+        const timer=setTimeout(()=>{pendingCommands.delete(id);resolve({error:'The host did not respond. The host must keep this room open.'});},8000);
+        pendingCommands.set(id,{resolve,timer});
+        const msg={type:'cricket:command',code:room.code,id,actor:me.id,action};
+        if(me.id===room.adminId)processCommand(msg);else broadcast(msg);
+      });
+    };
 
     st.checkUsername = function () { return Promise.resolve({ taken: false }); };
 
     st.createRoom = async function (r) {
       room = Object.assign({}, r);
-      room.status = 'lobby';
+      room.status = 'lobby';room.revision=1;
       room.members = r.members || [];
       // The host controls the room: record who the local member is.
       const hostId = room.adminId;
@@ -202,12 +121,14 @@
       const existing = load(code);
       if (!existing) return { error: 'Room not found on this device. Ask for a fresh code, or go online for cross-device play.' };
       if (existing.status === 'in_progress' && member.role !== 'spectator') return { error: 'This match has already started.' };
+      if(existing.status==='closed')return {error:'This room has closed.'};
+      if(existing.members.some(m=>m.id!==member.id&&m.name.trim().toLowerCase()===member.name.trim().toLowerCase()))return {error:'This name is already used. This is a multiplayer game, please use another hero, another name, or sign in with your ID.'};
       room = existing;
       me = member;
       // Add ourselves (dedupe by id).
       if (!room.members.some((m) => m.id === member.id)) {
         if (member.name.toLowerCase() === existing.adminId_name) {}
-        room.members.push(member);
+        room.members.push(member);room.revision=(room.revision||0)+1;
         save();
       }
       broadcast({ type: 'room:update', room });
@@ -216,10 +137,10 @@
 
     st.roomState = function (state) {
       if (!room) return;
-      room.state = state;
+      room.state = state;room.revision=(room.revision||0)+1;
       if (state && state.running) room.status = 'in_progress';
       save();
-      broadcast({ type: 'state', code: room.code, state });
+      broadcast({ type: 'state', code: room.code, state, revision:room.revision });
       emit('state', state);
     };
 
@@ -233,9 +154,10 @@
     st.admit = function (userId, slotOrRole) {
       if (!room || room.adminId !== (me && me.id)) return;
       const m = room.members.find((x) => x.id === userId);
-      if (!m) return;
+      if (!m || room.status !== 'lobby' || room.state?.cricket) return;
+      if(slotOrRole.role==='player' && room.members.some(x=>x.id!==userId&&x.role==='player'&&x.slot===slotOrRole.slot))return;
       m.role = slotOrRole.role || 'player';
-      m.slot = slotOrRole.slot || null;
+      m.slot = slotOrRole.slot ?? null;room.revision=(room.revision||0)+1;
       save();
       broadcast({ type: 'room:update', room });
       emit('room:update', room);
@@ -243,13 +165,18 @@
 
     st.start = function () {
       if (!room || room.adminId !== (me && me.id)) return;
-      room.status = 'in_progress';
+      room.status = 'in_progress';room.revision=(room.revision||0)+1;
       save();
       broadcast({ type: 'start', code: room.code });
       emit('game:start', { code: room.code });
     };
 
-    st.leave = function () { /* local channel stays open */ };
+    st.leave = function () {
+      if(room&&me){room.members=room.members.filter(m=>m.id!==me.id);room.revision=(room.revision||0)+1;if(me.id===room.adminId)room.status='closed';save();broadcast({type:'room:update',room});}
+      chan?.close?.(); window.removeEventListener('storage',storageHandler);
+      for(const p of pendingCommands.values()){clearTimeout(p.timer);p.resolve({error:'You left the room.'});}
+      pendingCommands.clear();room=null;me=null;
+    };
 
     return st;
   }
@@ -258,7 +185,11 @@
   let rt = null;
   function transport() {
     if (rt) return rt;
-    rt = makeSupabaseRT();
+    // Legacy public-write Supabase transport is intentionally disabled until an
+    // authenticated, transactional command backend is provisioned. Never silently
+    // downgrade a configured internet room to an insecure demo backend.
+    if(H.online()) throw new Error('Internet rooms are not configured securely yet. Use local play for now.');
+    rt = null;
     if (!rt) rt = makeLocalRT();
     return rt;
   }
@@ -294,9 +225,10 @@
   H.roomState = function (state) {
     if (!rt) return;
     rt.roomState(state);
-    emit('state', state); // local echo for the actor
+    // Transport already emits exactly one local echo.
   };
-  H.sendChat = function (text) { if (rt) rt.sendChat(text); };
+  H.cricketAction = action => rt?.cricketAction ? rt.cricketAction(action) : Promise.resolve({error:'Room unavailable.'});
+  H.sendChat = function (text) { text=String(text||'').trim().slice(0,200);if (rt&&text) rt.sendChat(text); };
   H.admit = function (userId, slotOrRole) { if (rt) rt.admit(userId, slotOrRole); };
   H.startGame = function () { if (rt) rt.start && rt.start(); };
   H.leave = function () { if (rt) rt.leave && rt.leave(); rt = null; };

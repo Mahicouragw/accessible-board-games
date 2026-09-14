@@ -1,0 +1,12 @@
+const {JSDOM}=require('jsdom'),fs=require('fs'),assert=require('node:assert/strict');
+const w=new JSDOM('',{runScripts:'outside-only'}).window;w.eval(fs.readFileSync(__dirname+'/../js/cricket-room.js','utf8'));const C=w.HeroCricketRoom;
+const teams={A:{name:'India',members:[{id:'a',name:'Goldfish'}]},B:{name:'Sri Lanka',members:[{id:'b',name:'Captain Two'}]}};
+let s=C.match({overs:1,wickets:17},teams);
+for(let i=0;i<6;i++)C.ball(s,2,3);
+assert.equal(s.sides.A.balls,6);assert.equal(s.sides.A.runs,12);assert.equal(s.target,13);assert.equal(s.batting,'B');
+for(let i=0;i<3;i++)C.ball(s,6,1);
+assert.equal(s.done,true);assert.equal(s.winner,'B');assert.throws(()=>C.ball(s,1,2));
+s=C.match({overs:20,wickets:17},teams);for(let i=0;i<17;i++)C.ball(s,1,1);assert.equal(s.sides.A.wickets,17);assert.equal(s.sides.A.balls,17);assert.equal(s.batting,'B');
+s=C.match({overs:20,wickets:1},teams);C.ball(s,4,3);assert.equal(s.last.cue,'four');C.ball(s,5,2);assert.equal(s.last.cue,'five');C.ball(s,6,2);assert.equal(s.last.cue,'six');C.ball(s,3,3);assert.equal(s.last.cue,'wicket');assert.match(s.last.text,/Goldfish is OUT/);assert.equal(s.sides.A.runs,15);
+for(const n of [0,7,-1,1.5,NaN])assert.throws(()=>C.ball(C.match({},teams),n,2));
+w.close();console.log('CRICKET RULES PASS: overs, chase, 17 wickets, real score cues, dismissal name and invalid picks.');

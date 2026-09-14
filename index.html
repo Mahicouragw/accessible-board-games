@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0a0f1e" />
-  <meta name="description" content="HeroBoard — a zero-copyright, audio-first multiplayer board-games hub. Play Hand Cricket, Ludo, Snakes & Ladders and Carrom with full screen-reader support, live chat and spectators." />
+  <meta name="description" content="HeroBoard — an audio-first board-games hub with licensed recordings. Play Hand Cricket, Ludo, Snakes & Ladders and Carrom with full screen-reader support, live chat and spectators." />
   <title>HeroBoard · Audio-First Board-Games Hub</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -29,10 +29,11 @@
   </header>
 
   <main id="main" class="main" tabindex="-1">
+    <h1 class="sr-only">HeroBoard games</h1>
     <!-- ===================== WELCOME ===================== -->
     <section id="screen-welcome" class="screen" aria-label="Welcome">
       <div class="hero">
-        <p class="kicker">Zero-copyright · Audio-first · Play together</p>
+        <p class="kicker">Audio-first · Licensed sound · Play together</p>
         <h1>HeroBoard</h1>
         <p class="sub">
           The board-game arena that speaks. Sound, voice, live multiplayer and
@@ -54,7 +55,7 @@
         <h2>Made for every player</h2>
         <ul class="tick-list">
           <li><strong>Audio-first:</strong> every move announces itself in clear speech and crafted sound — no screen required to play.</li>
-          <li><strong>Zero copyright:</strong> all sound effects are synthesised in-browser with the Web Audio API. Nothing to license.</li>
+          <li><strong>Sound:</strong> recorded cricket crowd effects are used under CC BY 4.0; other cues use browser synthesis. See the audio credits.</li>
           <li><strong>Multiplayer:</strong> local pass-and-play on one device, or online rooms synced in real time via Supabase.</li>
           <li><strong>Spectators &amp; chat:</strong> watch live, send messages, and inspect any player's profile before and during a match.</li>
           <li><strong>Accessible:</strong> high contrast, large targets, full keyboard control, live region announcements, and reduced-motion support.</li>
@@ -199,16 +200,16 @@
 
   <!-- Modal -->
   <div id="modal" class="modal" hidden>
-    <div class="modal-card" role="dialog" aria-modal="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Game dialog">
       <button class="icon-btn modal-close" id="modal-close" aria-label="Close dialog">&#10005;</button>
       <div id="modal-body"></div>
     </div>
   </div>
 
   <footer class="footer">
-    <span>Zero-copyright sound — synthesised in your browser.</span>
+    <span>Licensed recordings and browser-synthesised sound.</span>
     <span>HeroBoard · Audio-first multiplayer board games</span>
-  </footer>
+  <p><a href="AUDIO_CREDITS.md">Recorded sound credits and licenses</a></p></footer>
 
   <!-- Offline / connectivity overlay -->
   <div id="offline" class="offline" role="dialog" aria-modal="true" aria-labelledby="offline-title" hidden>
@@ -230,11 +231,13 @@
   <script src="js/store.js"></script>
   <script src="js/net.js"></script>
   <script src="js/common.js"></script>
+  <script src="js/cricket-room.js"></script>
   <script src="js/cricket.js"></script>
   <script src="js/snakes.js"></script>
   <script src="js/ludo.js"></script>
   <script src="js/carrom.js"></script>
   <script src="js/rooms.js"></script>
   <script src="js/app.js"></script>
+<script src="js/dialogs.js"></script>
 </body>
 </html>
