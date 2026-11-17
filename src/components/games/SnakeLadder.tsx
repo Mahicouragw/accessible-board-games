@@ -5,6 +5,7 @@ import { sound } from "@/lib/sound";
 import { announce } from "@/lib/a11y";
 import { stepMove } from "@/lib/stepMove";
 import { useSaveScore } from "@/lib/useSaveScore";
+import { useGameGestureHandlers } from "@/lib/gesture/useGameGestures";
 
 // bottom -> top mappings
 const LADDERS: Record<number, number> = {
@@ -146,6 +147,17 @@ export default function SnakeLadder() {
     };
   }, []);
 
+  // Game-specific gestures: tap the board (or swipe down) to roll the dice on
+  // your turn. Consumed at the game surface — never triggers world movement.
+  useGameGestureHandlers("snake-ladder", {
+    tap: () => {
+      if (turn === 0 && !busy && winner === null) rollFor(0);
+    },
+    "swipe-down": () => {
+      if (turn === 0 && !busy && winner === null) rollFor(0);
+    },
+  });
+
   function reset() {
     cancelled.current = false;
     setPos([0, 0]);
@@ -165,7 +177,7 @@ export default function SnakeLadder() {
       </div>
 
       <div className="relative rounded-2xl border-4 border-amber-900 bg-amber-50 p-1 shadow-2xl">
-        <div className="grid grid-cols-10 gap-px">
+        <div data-gesture-lock="all" className="grid grid-cols-10 gap-px">
           {Array.from({ length: 100 }).map((_, i) => {
             // render top row = 100..91 etc. Determine cell number at this render slot.
             const renderRow = Math.floor(i / 10); // 0 top

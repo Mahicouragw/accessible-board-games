@@ -1,7 +1,14 @@
 "use client";
 
-// Screen-reader / TalkBack announcements via an ARIA live region.
-// Works with Android TalkBack, VoiceOver, NVDA, etc.
+// Announcements for the arcade's IN-GAME TalkBack.
+// Every announce() does two things:
+//   1. writes to an ARIA live region (so a real system screen reader —
+//      Android TalkBack, VoiceOver, NVDA — reads it too), and
+//   2. SPEAKS the text aloud via speechSynthesis when the game voice is on,
+//      so the games are fully playable with the in-game voice alone, no
+//      system TalkBack required.
+
+import { sound } from "./sound";
 
 let region: HTMLElement | null = null;
 
@@ -23,6 +30,11 @@ function ensureRegion(): HTMLElement | null {
 }
 
 export function announce(message: string) {
+  // 1. Speak aloud (in-game TalkBack voice) — no-op when the voice is off.
+  try {
+    sound.speak(message);
+  } catch {}
+  // 2. ARIA live region for system screen readers.
   const r = ensureRegion();
   if (!r) return;
   // Clear then set so repeated identical messages are still read aloud.

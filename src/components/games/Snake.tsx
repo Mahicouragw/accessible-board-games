@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSaveScore } from "@/lib/useSaveScore";
 import { sound } from "@/lib/sound";
 import { announce } from "@/lib/a11y";
+import { useGameGestureHandlers, gameContextId } from "@/lib/gesture/useGameGestures";
+import { GestureManager } from "@/lib/gesture/manager";
 
 const SIZE = 15;
 type P = { x: number; y: number };
@@ -26,6 +28,10 @@ export default function Snake() {
   const [running, setRunning] = useState(false);
   const dir = useRef<P>({ x: 1, y: 0 });
   const nextDir = useRef<P>({ x: 1, y: 0 });
+  const runningRef = useRef(false);
+  const overRef = useRef(false);
+  runningRef.current = running;
+  overRef.current = over;
 
   const reset = useCallback(() => {
     setSnake([{ x: 7, y: 7 }]);
@@ -45,6 +51,9 @@ export default function Snake() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Gesture isolation: this window-level listener only answers while the
+      // Snake game context is the active one — never from the hub/world.
+      if (!GestureManager.get().allowsContextInput(gameContextId("snake"))) return;
       const m: Record<string, [number, number]> = {
         ArrowUp: [0, -1],
         ArrowDown: [0, 1],
@@ -59,6 +68,19 @@ export default function Snake() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [turn]);
+
+  // Game-specific gestures: swipes steer ONLY the snake, tap starts/restarts.
+  // These are delivered only while the "game:snake" context is active and are
+  // consumed at the game surface, so they can never move the RPG world.
+  useGameGestureHandlers("snake", {
+    "swipe-up": () => turn(0, -1),
+    "swipe-down": () => turn(0, 1),
+    "swipe-left": () => turn(-1, 0),
+    "swipe-right": () => turn(1, 0),
+    tap: () => {
+      if (!runningRef.current || overRef.current) reset();
+    },
+  });
 
   useEffect(() => {
     if (!running || over) return;
@@ -131,6 +153,7 @@ export default function Snake() {
 
       <div className="relative rounded-2xl bg-slate-900 p-2">
         <div
+          data-gesture-lock="all"
           className="grid gap-px overflow-hidden rounded-xl bg-slate-950"
           style={{ gridTemplateColumns: `repeat(${SIZE}, 1fr)` }}
         >
@@ -180,6 +203,7 @@ export default function Snake() {
       </div>
 
       {/* Touch controls */}
+      <p className="mt-2 text-center text-xs text-slate-500">Swipe the board to steer, or use the buttons.</p>
       <div className="mt-5 grid grid-cols-3 gap-2 sm:hidden">
         <div />
         <Ctrl onClick={() => turn(0, -1)}>▲</Ctrl>

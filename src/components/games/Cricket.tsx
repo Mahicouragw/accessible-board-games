@@ -206,7 +206,11 @@ export default function Cricket() {
     sound.play("select");
   };
 
+  const ballLock = useRef(false);
   const playBall = () => {
+    if (ballLock.current) return;
+    ballLock.current = true;
+    try {
     const battingTeam = isUserBatting ? userTeam : computerTeam;
     const bowlingTeam = isUserBatting ? computerTeam : userTeam;
     
@@ -370,7 +374,21 @@ export default function Cricket() {
     }
 
     setCurrentBall(prev => prev + 1);
+    } finally {
+      ballLock.current = false;
+    }
   };
+
+  const playBallRef = useRef(playBall);
+  playBallRef.current = playBall;
+
+  // When the COMPUTER is batting, balls are played automatically — otherwise
+  // the innings would dead-end on a disabled button.
+  useEffect(() => {
+    if (gameState !== "batting" || isUserBatting) return;
+    const t = setInterval(() => playBallRef.current(), 1100);
+    return () => clearInterval(t);
+  }, [gameState, isUserBatting]);
 
   const currentBattingTeam = isUserBatting ? userTeam : computerTeam;
   const currentBowlingTeam = isUserBatting ? computerTeam : userTeam;

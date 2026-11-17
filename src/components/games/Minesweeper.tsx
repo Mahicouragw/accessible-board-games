@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { sound } from "@/lib/sound";
 import { announce } from "@/lib/a11y";
+import { useGameGestureHandlers } from "@/lib/gesture/useGameGestures";
 
 const ROWS = 10;
 const COLS = 10;
@@ -96,6 +97,25 @@ export default function Minesweeper() {
     sound.play("click");
   };
 
+  // Game-specific gestures: long-press a cell to flag/unflag it (accessible
+  // alternative to right-click, works without TalkBack too). Tap still reveals
+  // via the cell's own button. Consumed at the game surface only.
+  useGameGestureHandlers("minesweeper", {
+    "long-press": (g) => {
+      const el = g.target instanceof Element ? g.target.closest("[data-cell]") : null;
+      if (!el) return;
+      const r = Number(el.getAttribute("data-r"));
+      const c = Number(el.getAttribute("data-c"));
+      if (Number.isNaN(r) || Number.isNaN(c)) return;
+      if (gameOver || board[r][c].revealed) return;
+      const newBoard = board.map(row => row.map(cell => ({ ...cell })));
+      newBoard[r][c].flagged = !newBoard[r][c].flagged;
+      setBoard(newBoard);
+      sound.play("click");
+      announce(newBoard[r][c].flagged ? `Row ${r + 1} col ${c + 1} flagged` : `Row ${r + 1} col ${c + 1} unflagged`);
+    },
+  });
+
   return (
     <div className="max-w-md mx-auto space-y-4">
       <div className="rounded-2xl border-2 border-amber-500/30 bg-amber-500/10 p-3">
@@ -108,11 +128,14 @@ export default function Minesweeper() {
         </div>
       </div>
 
-      <div className="grid gap-0 rounded-xl overflow-hidden border-4 border-slate-700 mx-auto" style={{ gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`, maxWidth: "400px" }}>
+      <div data-gesture-lock="all" className="grid gap-0 rounded-xl overflow-hidden border-4 border-slate-700 mx-auto" style={{ gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`, maxWidth: "400px" }}>
         {board.map((row, r) =>
           row.map((cell, c) => (
             <button
               key={`${r}-${c}`}
+              data-cell
+              data-r={r}
+              data-c={c}
               onClick={() => reveal(r, c)}
               onContextMenu={(e) => toggleFlag(r, c, e)}
               className={`aspect-square flex items-center justify-center text-xs font-bold border border-slate-700

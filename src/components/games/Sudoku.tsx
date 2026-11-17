@@ -45,6 +45,7 @@ export default function Sudoku() {
   const [selected, setSelected] = useState<[number, number] | null>(null);
   const [errors, setErrors] = useState(0);
   const [wins, setWins] = useState(0);
+  const [solved, setSolved] = useState(false);
 
   useEffect(() => {
     const { puzzle: p, solution: s } = generateSudoku();
@@ -75,7 +76,7 @@ export default function Sudoku() {
         sound.play("win");
         announce("Sudoku complete. Congratulations, you solved the puzzle!");
         setWins(w => w + 1);
-        setTimeout(() => alert(`Sudoku Solved! Errors: ${errors}`), 200);
+        setSolved(true);
       }
     }
   };
@@ -84,6 +85,7 @@ export default function Sudoku() {
     setBoard(puzzle.map(row => [...row]));
     setErrors(0);
     setSelected(null);
+    setSolved(false);
     sound.play("click");
   };
 
@@ -97,6 +99,12 @@ export default function Sudoku() {
           <span className="px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border">Wins: {wins}</span>
         </div>
       </div>
+
+      {solved && (
+        <div className="rounded-2xl bg-emerald-500/15 p-4 text-center text-lg font-bold text-emerald-400">
+          🎉 Sudoku solved with {errors} error{errors === 1 ? "" : "s"}!
+        </div>
+      )}
 
       <div className="grid grid-cols-9 gap-0 rounded-xl overflow-hidden border-4 border-slate-700 mx-auto" style={{ maxWidth: "360px" }}>
         {board.map((row, r) =>

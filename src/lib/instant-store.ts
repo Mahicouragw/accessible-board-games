@@ -28,6 +28,7 @@ const COLLECTIONS = [
   "messages",
   "roomInvites",
   "signals",
+  "sounds",
 ] as const;
 type Coll = (typeof COLLECTIONS)[number];
 type Doc = { seq: Record<string, number> } & Record<Coll, Row[]>;
@@ -40,6 +41,7 @@ const CAPS: Partial<Record<Coll, number>> = {
   rooms: 200,
   roomInvites: 120,
   scores: 1500,
+  sounds: 64,
 };
 
 const iso = () => new Date().toISOString();
@@ -290,5 +292,23 @@ export const instantStore = {
         .slice(-60),
     insert: async (v: Row): Promise<Row | null> =>
       transact(insertRow("signals", { toId: 0 }, v)),
+  },
+  sounds: {
+    get: async (name: string): Promise<Row | null> =>
+      (await load()).sounds.find((s) => s.name === name) ?? null,
+    set: async (v: Row): Promise<Row | null> =>
+      transact((doc) => {
+        const existing = doc.sounds.find((s) => s.name === v.name);
+        if (existing) {
+          Object.assign(existing, v, { updatedAt: iso() });
+          return existing;
+        }
+        return insertRow("sounds", { mime: "audio/wav", updatedAt: iso() }, v)(doc);
+      }),
+    remove: async (name: string): Promise<Row[]> =>
+      transact((doc) => {
+        doc.sounds = doc.sounds.filter((s) => s.name !== name);
+        return [];
+      }),
   },
 };

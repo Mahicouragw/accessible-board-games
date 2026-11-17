@@ -32,6 +32,7 @@ export default function FootballPenalty() {
         res = "save";
         setScore(s => ({ ...s, misses: s.misses + 1, streak: 0 }));
         sound.play("capture");
+        announce("Saved! The keeper dives and holds it.");
       } else {
         res = "goal";
         setScore(s => {

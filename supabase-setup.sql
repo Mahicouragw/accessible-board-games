@@ -13,7 +13,7 @@
 --      ENTIRE file — no text selecting needed:
 --        https://github.com/Mahicouragw/accessible-board-games/blob/main/supabase-setup.sql
 --   2. Open the SQL editor:
---        https://supabase.com/dashboard/project/zncepqzgsidqjvkayxdr/sql/new
+--        https://supabase.com/dashboard/project/tmkpdvljhnlnvbckbnsc/sql/new
 --   3. Tap inside the editor, press Ctrl+A then Delete (must be EMPTY!),
 --      then Ctrl+V to paste ONCE.
 --   4. Press RUN. Look for "Success" + "✅ upgrade complete" + 7 bg_ tables.
@@ -120,12 +120,22 @@ create table if not exists public.bg_signals (
 );
 create index if not exists bg_signals_room_idx on public.bg_signals (room_id, id);
 
+-- Sound Studio: player-recorded sound effects (published to everyone).
+create table if not exists public.bg_sounds (
+  id         bigint generated always as identity primary key,
+  name       text not null unique,
+  mime       text not null default 'audio/wav',
+  data       text not null,                          -- base64 audio
+  updated_at timestamptz not null default now()
+);
+create index if not exists bg_sounds_name_idx on public.bg_sounds (name);
+
 -- ============ 2. OPEN ARCADE POLICIES (public game data, same model as Nexus) ============
 do $$
 declare
   t text;
 begin
-  foreach t in array array['bg_players','bg_scores','bg_matches','bg_rooms','bg_messages','bg_room_invites','bg_signals']
+  foreach t in array array['bg_players','bg_scores','bg_matches','bg_rooms','bg_messages','bg_room_invites','bg_signals','bg_sounds']
   loop
     execute format('alter table public.%I enable row level security', t);
 
@@ -149,7 +159,7 @@ declare
   t text;
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    foreach t in array array['bg_matches','bg_rooms','bg_messages','bg_signals','bg_room_invites']
+    foreach t in array array['bg_matches','bg_rooms','bg_messages','bg_signals','bg_room_invites','bg_sounds']
     loop
       begin
         execute format('alter publication supabase_realtime add table public.%I', t);
@@ -162,7 +172,10 @@ exception when others then
   null; -- realtime is a bonus, never a blocker
 end $$;
 
--- ============ 4. VERIFY — you should see "✅ upgrade complete" and 7 tables ============
+-- ============ 4. STORAGE BUCKET for sound/media uploads (public read) ============
+insert into storage.buckets (id, name, public) values ('bg-sounds', 'bg-sounds', true) on conflict (id) do nothing;
+
+-- ============ 5. VERIFY — you should see "✅ upgrade complete" and 8 tables ============
 select '✅ upgrade complete — Supabase backend is LIVE' as status;
 select table_name
 from information_schema.tables

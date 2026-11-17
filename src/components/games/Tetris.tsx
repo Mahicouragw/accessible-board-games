@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { sound } from "@/lib/sound";
 import { announce } from "@/lib/a11y";
+import { useGameGestureHandlers } from "@/lib/gesture/useGameGestures";
 
 const ROWS = 15;
 const COLS = 10;
@@ -49,7 +50,7 @@ export default function Tetris() {
     return true;
   };
 
-  const placePiece = () => {
+  const placePiece = (overrideR?: number) => {
     const newBoard = board.map(row => [...row]);
     current.piece.shape.forEach((row, i) => {
       row.forEach((cell, j) => {
@@ -116,6 +117,25 @@ export default function Tetris() {
     }
   };
 
+  const hardDrop = () => {
+    if (gameOver) return;
+    let r = current.r;
+    while (isValid(r + 1, current.c, current.piece.shape)) r++;
+    placePiece(r);
+    sound.play("capture");
+    announce("Hard drop.");
+  };
+
+  // Game-specific gestures: swipe left/right = move, swipe down = soft drop,
+  // swipe up = hard drop, tap = rotate. Consumed at the game surface only.
+  useGameGestureHandlers("tetris", {
+    "swipe-left": () => move(0, -1),
+    "swipe-right": () => move(0, 1),
+    "swipe-down": () => move(1, 0),
+    "swipe-up": () => hardDrop(),
+    tap: () => rotate(),
+  });
+
   const reset = () => {
     setBoard(Array(ROWS).fill(null).map(() => Array(COLS).fill(null)));
     setScore(0);
@@ -141,7 +161,7 @@ export default function Tetris() {
         </div>
       </div>
 
-      <div className="grid gap-0 rounded-xl overflow-hidden border-4 border-slate-700 bg-slate-900 mx-auto" style={{ gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`, maxWidth: "300px" }}>
+      <div data-gesture-lock="all" className="grid gap-0 rounded-xl overflow-hidden border-4 border-slate-700 bg-slate-900 mx-auto" style={{ gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`, maxWidth: "300px" }}>
         {board.map((row, r) =>
           row.map((cell, c) => {
             const isCurrent = current.piece.shape.some((pr, ri) => pr.some((pc, ci) => pc && current.r + ri === r && current.c + ci === c));

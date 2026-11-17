@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSaveScore } from "@/lib/useSaveScore";
 import { sound } from "@/lib/sound";
 import { announce } from "@/lib/a11y";
+import { useGameGestureHandlers, gameContextId } from "@/lib/gesture/useGameGestures";
+import { GestureManager } from "@/lib/gesture/manager";
 
 type Grid = number[][];
 
@@ -106,6 +108,9 @@ export default function Game2048() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      // Gesture isolation: arrow keys only move tiles while the 2048 game
+      // context is active — never from the hub/world screen.
+      if (!GestureManager.get().allowsContextInput(gameContextId("2048"))) return;
       const map: Record<string, "up" | "down" | "left" | "right"> = {
         ArrowUp: "up",
         ArrowDown: "down",
@@ -120,6 +125,14 @@ export default function Game2048() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [move]);
+
+  // Game-specific gestures: swipes slide ONLY the 2048 tiles.
+  useGameGestureHandlers("2048", {
+    "swipe-left": () => move("left"),
+    "swipe-right": () => move("right"),
+    "swipe-up": () => move("up"),
+    "swipe-down": () => move("down"),
+  });
 
   useEffect(() => {
     if (over && score > 0) save(score);
@@ -167,7 +180,7 @@ export default function Game2048() {
       </div>
 
       <div className="relative rounded-2xl bg-slate-900 p-3">
-        <div className="grid grid-cols-4 gap-3">
+        <div data-gesture-lock="all" className="grid grid-cols-4 gap-3">
           {grid.flat().map((v, i) => (
             <div
               key={i}
@@ -205,7 +218,7 @@ export default function Game2048() {
         <Ctrl onClick={() => move("right")}>▶</Ctrl>
       </div>
       <p className="mt-4 text-center text-sm text-slate-500">
-        Use arrow keys or the on-screen buttons.
+        Swipe the board, use arrow keys, or the on-screen buttons.
       </p>
     </div>
   );

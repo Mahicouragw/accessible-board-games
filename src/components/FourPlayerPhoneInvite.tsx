@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { sound } from "@/lib/sound";
+import { announce } from "@/lib/a11y";
 import { useSession } from "@/lib/session";
 
 export type FourPlayer = {
@@ -96,12 +97,12 @@ export default function FourPlayerPhoneInvite({ game, onPlayersReady, roomCode: 
     }
     if (players.length >= 4) {
       sound.play("lose");
-      alert("Maximum 4 players!");
+      announce("Maximum 4 players!");
       return;
     }
     if (players.some(p => p.color === selectedColor)) {
       sound.play("lose");
-      alert(`Color ${selectedColor} already taken!`);
+      announce(`Color ${selectedColor} is already taken!`);
       return;
     }
 
@@ -328,7 +329,7 @@ export default function FourPlayerPhoneInvite({ game, onPlayersReady, roomCode: 
             })}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <button onClick={() => { sound.play("win"); alert(`Match starting! Room ${roomCode} - ${players.length} players: ${players.map(p => `${p.name} ${p.color}`).join(', ')}`); }} className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white">🎲 Start {players.length}-Player Match!</button>
+            <button onClick={() => { sound.play("win"); announce(`Match starting! Room ${roomCode} with ${players.length} players.`); }} className="rounded-xl bg-emerald-500 px-4 py-3 text-sm font-bold text-white">🎲 Start {players.length}-Player Match!</button>
             <button onClick={() => { navigator.clipboard.writeText(`Join ${game} Room ${roomCode}: https://accessible-board-games.vercel.app/rooms/${roomCode}`); sound.play("select"); }} className="rounded-xl bg-sky-500 px-4 py-3 text-sm font-bold text-white">🔗 Copy Room Link</button>
           </div>
         </div>

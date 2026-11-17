@@ -180,8 +180,7 @@ export default function MonsterBattle() {
         addLog(`🏆 Victory! All ${encounterSize} monsters defeated! Total XP: ${totalXp}`, "system");
         sound.play("win");
       announce("Monster defeated. You win the battle!");
-        setWins(w => w + 1);
-        save(wins + 1);
+        setWins(w => { const nw = w + 1; save(nw); return nw; });
         return;
       } else {
         // Adjust selected monster if needed
@@ -297,8 +296,7 @@ export default function MonsterBattle() {
           setGameState("victory");
           addLog(`🏆 Light spell defeated all monsters! Victory!`, "system");
           sound.play("win");
-          setWins(w => w + 1);
-          save(wins + 1);
+          setWins(w => { const nw = w + 1; save(nw); return nw; });
         } else {
           setIsPlayerTurn(false);
           setTimeout(() => monsterTurn(alive), 800);
@@ -323,8 +321,7 @@ export default function MonsterBattle() {
       if (alive.length === 0) {
         setGameState("victory");
         sound.play("win");
-        setWins(w => w + 1);
-        save(wins + 1);
+        setWins(w => { const nw = w + 1; save(nw); return nw; });
       } else {
         setIsPlayerTurn(false);
         setTimeout(() => monsterTurn(alive), 800);
@@ -343,8 +340,7 @@ export default function MonsterBattle() {
         if (alive.length === 0) {
           setGameState("victory");
           sound.play("win");
-          setWins(w => w + 1);
-          save(wins + 1);
+          setWins(w => { const nw = w + 1; save(nw); return nw; });
         } else {
           setIsPlayerTurn(false);
           setTimeout(() => monsterTurn(alive), 800);

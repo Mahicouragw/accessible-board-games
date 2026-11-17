@@ -6,6 +6,7 @@ import { GAMES } from "@/lib/games";
 import OnlinePlayers from "@/components/OnlinePlayers";
 import RoomsBrowser from "@/components/RoomsBrowser";
 import RewardsBadge from "@/components/RewardsBadge";
+import { useHubGestureContext } from "@/lib/gesture/useGameGestures";
 
 function level(xp: number) {
   return Math.floor(xp / 100) + 1;
@@ -16,7 +17,7 @@ export default function Dashboard() {
   if (!player) return null;
 
   const lvl = level(player?.xp ?? 0);
-  const progress = player?.xp ?? 0 % 100;
+  const progress = (player?.xp ?? 0) % 100;
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">

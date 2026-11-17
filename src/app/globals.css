@@ -114,3 +114,19 @@ body {
   background: #ffff00;
   color: black;
 }
+
+/* ---- Context-aware gesture surfaces -------------------------------------
+   A .gesture-surface is a mini-game's input boundary. Pointer gestures that
+   start inside it are owned by the active game context only; the recognizer
+   sets touch-action scoped to this element (never globally), so normal page
+   scrolling and accessibility navigation elsewhere are untouched. */
+.gesture-surface {
+  touch-action: pan-y; /* vertical page scroll still works; horizontal swipes go to the game */
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* Boards that need swipes in every direction lock all panning locally. */
+.gesture-surface [data-gesture-lock="all"],
+[data-gesture-lock="all"] {
+  touch-action: none;
+}

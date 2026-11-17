@@ -22,20 +22,20 @@ export default function Basketball() {
     
     if (chance > 0.55) {
       setScore(s => s + 1);
-      announce("Goal! Score " + (score + 1) + ".");
       setStreak(s => {
         const ns = s + 1;
         setBest(b => Math.max(b, ns));
         return ns;
       });
       setResult("score");
-      sound.play("win");
-      announce("Basketball time up. You win!");
+      sound.play("bounce");
+      setTimeout(() => sound.play("win"), 350);
+      announce("Score! Hoop! That's " + (score + 1) + " point" + (score + 1 > 1 ? "s" : "") + ", streak " + (streak + 1) + ".");
     } else {
       setStreak(0);
       setResult("miss");
       sound.play("lose");
-      announce("Basketball time up. Final score " + score + ".");
+      announce("Miss! The shot rimmed out. Score stays " + score + ".");
     }
     setTimeout(() => setResult(null), 1000);
   };
