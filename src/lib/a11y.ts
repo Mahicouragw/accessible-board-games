@@ -12,6 +12,21 @@ import { sound } from "./sound";
 
 let region: HTMLElement | null = null;
 
+const ONES = ["zero","one","two","three","four","five","six","seven","eight","nine","ten","eleven","twelve","thirteen","fourteen","fifteen","sixteen","seventeen","eighteen","nineteen"];
+const TENS = ["","","twenty","thirty","forty","fifty","sixty","seventy","eighty","ninety"];
+
+/** Speak numbers as words: 6 → "six", 21 → "twenty-one", 100 → "one hundred". */
+export function numWord(n: number): string {
+  n = Math.round(n);
+  if (n >= 0 && n < 20) return ONES[n];
+  if (n < 100) {
+    const t = Math.floor(n / 10), o = n % 10;
+    return o === 0 ? TENS[t] : `${TENS[t]}-${ONES[o]}`;
+  }
+  if (n === 100) return "one hundred";
+  return String(n);
+}
+
 function ensureRegion(): HTMLElement | null {
   if (typeof document === "undefined") return null;
   if (region && document.body.contains(region)) return region;

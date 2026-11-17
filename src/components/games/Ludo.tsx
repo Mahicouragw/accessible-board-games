@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sound } from "@/lib/sound";
-import { announce } from "@/lib/a11y";
+import { announce, numWord } from "@/lib/a11y";
 import { stepMove } from "@/lib/stepMove";
 import { useSaveScore } from "@/lib/useSaveScore";
 import { useGameGestureHandlers } from "@/lib/gesture/useGameGestures";
@@ -118,7 +118,7 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
         working[color][idx] = 0;
         setTokens({ ...working });
         await sound.playAndWait("ludo_token", 800);
-        announce(`${color} token ${idx + 1} left the yard.`);
+        announce(`${color} token ${idx + 1} left the yard to square zero.`);
         await delay(80);
       } else {
         // v1.9.3 — strict per-tile sync via stepMove: roll N → EXACTLY N taps,
@@ -126,19 +126,20 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
         const stepCount = roll;
         await stepMove({
           steps: stepCount,
-          onStep: (s) => {
+          onStep: (st) => {
             working = {
               red: [...working.red],
               green: [...working.green],
               yellow: [...working.yellow],
               blue: [...working.blue],
             };
-            working[color][idx] = start + s;
+            working[color][idx] = start + st;
             setTokens(working);
           },
-          announceStep: (s) => announce(`${color} token ${idx + 1}, step ${start + s}`),
           tap: () => sound.playAndWait("ludo_token", 800),
         });
+        // One clear announcement for the whole move: "red token 1 moved from square X to square Y"
+        announce(`${color} token ${idx + 1} moved from square ${numWord(start)} to square ${numWord(start + stepCount)}`);
       }
       if (cancelled.current) return;
 
@@ -211,23 +212,27 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
       await sound.playAndWait("ludo_dice", 2600);
       setDice(r);
       setRolling(false);
-      announce(`${color} rolled ${r}`);
+      announce(`${color} rolled ${numWord(r)}`);
       const mv = getMovable(tokens, color, r);
       if (mv.length === 0) {
-        setMsg(`${color} rolled ${r} — no moves. Turn passes.`);
+        // Rolling a SIX always earns a bonus roll — even if no token can move.
+        const extra = r === 6;
+        const next = extra ? color : COLORS[(COLORS.indexOf(color) + 1) % 4];
+        setMsg(extra ? `${color} rolled six — bonus roll! Roll again!` : `${color} rolled ${r} — no moves. Turn passes.`);
         await delay(700);
         if (cancelled.current) return;
-        const next = COLORS[(COLORS.indexOf(color) + 1) % 4];
         setTurn(next);
         setDice(0);
         setPhase("roll");
-        setMsg(humanColors.includes(next) ? `${next}'s turn — roll the dice!` : `${next}'s turn…`);
+        setMsg(humanColors.includes(next)
+          ? (extra ? `Bonus roll — ${next} go again!` : `${next}'s turn — roll the dice!`)
+          : `${next}'s turn…`);
         return;
       }
       if (humanColors.includes(color)) {
         setMovable(mv);
         setPhase("select");
-        setMsg(`${color} rolled ${r} — Pick a token to move! ${mv.length} movable token${mv.length > 1 ? "s" : ""}. TalkBack: Use token buttons below!`);
+        setMsg(`${color} rolled ${numWord(r)} — Pick a token to move! ${mv.length} movable token${mv.length > 1 ? "s" : ""}. TalkBack: Use token buttons below!`);
         if (mv.length === 1) {
           // For accessibility, don't auto-move, let user choose via button for TalkBack
           // await delay(250);

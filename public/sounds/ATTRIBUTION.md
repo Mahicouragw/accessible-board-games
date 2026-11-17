@@ -29,3 +29,5 @@ From the open-source `uisfx` package (https://uisfx.com, audio dedicated CC0):
 
 The old procedurally-synthesized WAVs (scripts/generate-sounds.js) were removed.
 Players can replace ANY effect with their own recording in /sound-studio.
+| `realistic/uisfx-swipe.mp3` | arcade/swipe (gesture whoosh) |
+| `realistic/uisfx-press.mp3` | arcade/press (tap tick) |

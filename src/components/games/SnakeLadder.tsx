@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sound } from "@/lib/sound";
-import { announce } from "@/lib/a11y";
+import { announce, numWord } from "@/lib/a11y";
 import { stepMove } from "@/lib/stepMove";
 import { useSaveScore } from "@/lib/useSaveScore";
 import { useGameGestureHandlers } from "@/lib/gesture/useGameGestures";
@@ -47,17 +47,18 @@ export default function SnakeLadder() {
       let target = start + roll;
       if (target > 100) {
         setMsg(`${names[player]} need exact roll. Turn skipped.`);
-        announce(`${names[player]} rolled ${roll}, too high, staying on ${start}`);
+        announce(`${names[player]} rolled ${numWord(roll)} — too high, staying on square ${numWord(start)}`);
         return start;
       }
       // v1.9.3 — strict per-tile sync via stepMove: roll N → EXACTLY N taps,
       // each tap finishes BEFORE its square announcement (no overlap, no extras).
       await stepMove({
         steps: roll,
-        onStep: (n) => setPos((p) => (player === 0 ? [n, p[1]] : [p[0], n])),
-        announceStep: (n) => announce(`${names[player]} moved to square ${n}`),
+        onStep: (n) => setPos((p) => (player === 0 ? [start + n, p[1]] : [p[0], start + n])),
         tap: () => sound.playAndWait("move", 800),
       });
+      // One clear announcement for the whole move: "You moved from square one to square six"
+      announce(`${names[player]} moved from square ${numWord(start)} to square ${numWord(target)}`);
       // ladder or snake
       if (LADDERS[target]) {
         const to = LADDERS[target];
@@ -94,7 +95,7 @@ export default function SnakeLadder() {
       await sound.playAndWait("dice", 3000);
       setDice(roll);
       setRolling(false);
-      announce(`${names[player]} rolled ${roll}`);
+      announce(`${names[player]} rolled ${numWord(roll)}`);
       const landed = await step(player, roll);
       if (cancelled.current) return;
       if (landed >= 100) {
@@ -121,7 +122,7 @@ export default function SnakeLadder() {
       setTurn(next);
       setMsg(
         extra
-          ? `${names[player]} rolled a 6 — roll again!`
+          ? `${names[player]} rolled six — roll again!`
           : next === 0
             ? "Your turn — roll the dice!"
             : "AI's turn…",
