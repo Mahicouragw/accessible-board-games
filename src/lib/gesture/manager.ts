@@ -166,6 +166,16 @@ export class GestureManager {
     let consumed = false;
     const map = this.handlers.get(controller.id);
     const handler = map?.[g.type];
+    // Real recorded feedback for the gesture itself: swipe whoosh on any
+    // swipe, a press tick on tap/double-tap — heard no matter which screen.
+    // (Global singleton access keeps this module DOM/React-free for tests.)
+    const sfx = (globalThis as any).__arcadeSound as
+      | { play: (name: string) => void }
+      | undefined;
+    if (sfx) {
+      if (g.type.startsWith("swipe")) sfx.play("swipe");
+      else if (g.type === "tap" || g.type === "double-tap") sfx.play("press");
+    }
     if (handler) {
       handler(g);
       consumed = true;

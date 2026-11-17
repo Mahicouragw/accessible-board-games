@@ -21,8 +21,7 @@ export async function POST(req: Request) {
     const last10 = cleanPhone.replace(/\D/g, "").slice(-10);
 
     try {
-      // Exact match first.
-      let player = await store.players.findByCode(""); // warm not needed; placeholder replaced below
+      // Match by phone (exact, then last-10-digits) across all players.
       const all = await store.players.listAll();
       const found = all.find(
         (p) =>
@@ -41,7 +40,7 @@ export async function POST(req: Request) {
         if (!dup) break;
         code = genCode();
       }
-      player = await store.players.create({
+      const player = await store.players.create({
         name: `Player ${last10.slice(-4) || cleanPhone.slice(-4)}`,
         code, avatar: "📱", phone: cleanPhone,
       });

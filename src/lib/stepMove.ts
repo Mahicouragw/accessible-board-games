@@ -15,8 +15,9 @@ export async function stepMove(opts: {
   steps: number;
   /** Advance the token by one square (called BEFORE the tap). */
   onStep: (i: number) => void;
-  /** Announce the square AFTER the tap finished. */
-  announceStep: (i: number) => void;
+  /** Optional per-square announcement AFTER the tap finished. Games that want a
+   *  single "moved from X to Y" announcement instead omit this. */
+  announceStep?: (i: number) => void;
   /** Play one movement sound; must resolve after the sound ends. */
   tap: () => Promise<void>;
   /** Small pause after each announcement (default 80ms). */
@@ -26,7 +27,7 @@ export async function stepMove(opts: {
   for (let i = 1; i <= opts.steps; i++) {
     opts.onStep(i);
     await opts.tap(); // exactly ONE sound, waits for its real duration
-    opts.announceStep(i);
+    opts.announceStep?.(i);
     if (gapMs > 0) await new Promise((r) => setTimeout(r, gapMs));
   }
 }

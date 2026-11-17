@@ -34,7 +34,9 @@ export type Sfx =
   | "bounce"
   | "button"
   | "basketball_bounce"
-  | "football_kick";
+  | "football_kick"
+  | "swipe"
+  | "press";
 
 export const SFX_LIST: { name: Sfx; label: string; emoji: string }[] = [
   { name: "click", label: "UI click", emoji: "👆" },
@@ -66,6 +68,8 @@ export const SFX_LIST: { name: Sfx; label: string; emoji: string }[] = [
   { name: "cricket_boundary", label: "Cricket boundary crowd", emoji: "📣" },
   { name: "cricket_wicket", label: "Cricket wicket", emoji: "🪵" },
   { name: "background_music", label: "Background music", emoji: "🎵" },
+  { name: "swipe", label: "Swipe gesture", emoji: "👆" },
+  { name: "press", label: "Press / tap", emoji: "👆" },
 ];
 
 export const SFX_NAMES: Sfx[] = SFX_LIST.map((s) => s.name);

@@ -48,6 +48,8 @@ const SOUND_FILES: Record<Sfx, string> = {
   button: "/sounds/realistic/uisfx-button.mp3",                 // real recorded minimal press (uisfx CC0)
   basketball_bounce: "/sounds/realistic/uisfx-bball.mp3",       // 🏀 real recorded rubber snap (uisfx CC0)
   football_kick: "/sounds/realistic/uisfx-kick.mp3",            // ⚽ real recorded organic thud (uisfx CC0)
+  swipe: "/sounds/realistic/uisfx-swipe.mp3",                    // 👆 real recorded swipe whoosh (uisfx CC0)
+  press: "/sounds/realistic/uisfx-press.mp3",                    // 👆 real recorded press (uisfx CC0)
 };
 
 // 🎵 Per-game background music — each of the user's favourites has its own tune;
