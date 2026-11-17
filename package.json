@@ -37,7 +37,7 @@
   "author": "Accessible Board Games",
   "license": "MIT",
   "engines": {
-    "node": "20.x"
+    "node": "24.x"
   },
   "dependencies": {
     "@capacitor/android": "^6.1.2",
