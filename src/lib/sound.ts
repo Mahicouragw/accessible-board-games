@@ -402,11 +402,35 @@ class SoundEngine {
   private _ttsBusy = false;
   private _ttsQueue: Array<() => void> = [];
 
+  /** Pick the best installed voice for a BCP-47 lang; fall back to any voice
+   *  so speech still works on devices/WebViews with a sparse voice list. */
+  private pickVoice(lang: string): SpeechSynthesisVoice | null {
+    try {
+      const synth = window.speechSynthesis;
+      const voices = synth.getVoices();
+      if (!voices.length) return null;
+      const base = lang.toLowerCase().slice(0, 2);
+      return (
+        voices.find((v) => v.lang?.toLowerCase().startsWith(lang.toLowerCase())) ||
+        voices.find((v) => v.lang?.toLowerCase().slice(0, 2) === base) ||
+        voices.find((v) => v.default) ||
+        voices[0]
+      );
+    } catch {
+      return null;
+    }
+  }
+
   /** Speak a line with automatic music ducking (WebAudio source AND HTMLAudio fallback). */
   speak(text: string, opts: { rate?: number; pitch?: number; volume?: number } = {}) {
     if (typeof window === "undefined" || typeof window.speechSynthesis === "undefined") return;
     if (!this.settings.voice) return; // user has voice prompts off
     const synth = window.speechSynthesis;
+    try {
+      // Android/Chrome sometimes leave the synth paused/suspended — resume it.
+      if ((synth as unknown as { paused: boolean }).paused) synth.resume();
+      synth.getVoices(); // warm the voice list (loads async on first call)
+    } catch {}
     const perform = () => {
       this._ttsBusy = true;
       // Duck: mute music if it's playing (both playback paths), remember to resume.
@@ -422,7 +446,14 @@ class SoundEngine {
         }
       } catch {}
       const u = new SpeechSynthesisUtterance(text);
-      u.lang = speechLang(); // English / Telugu / Hindi narration language setting
+      const lang = speechLang(); // English / Telugu / Hindi narration language setting
+      const voice = this.pickVoice(lang);
+      if (voice) {
+        u.voice = voice;
+        u.lang = voice.lang;
+      } else {
+        u.lang = lang; // no matching voice installed — let the engine pick its default
+      }
       u.rate = opts.rate ?? 0.95;
       u.pitch = opts.pitch ?? 1.0;
       u.volume = opts.volume ?? 1.0;
@@ -498,6 +529,14 @@ if (typeof window !== "undefined") {
       // (autoplay policies require a gesture), even on the dashboard.
       const s = (globalThis as any).__arcadeSound as SoundEngine | undefined;
       if (s && s.settings.music && !s.isMusicPlaying) void s.startMusic();
+      // Unlock speechSynthesis on the first gesture and preload its voices.
+      try {
+        const synth = window.speechSynthesis;
+        if (synth) {
+          synth.getVoices();
+          if ((synth as unknown as { paused: boolean }).paused) synth.resume();
+        }
+      } catch {}
     }
   }, true);
 
