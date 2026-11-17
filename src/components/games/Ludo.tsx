@@ -5,6 +5,7 @@ import { sound } from "@/lib/sound";
 import { announce } from "@/lib/a11y";
 import { stepMove } from "@/lib/stepMove";
 import { useSaveScore } from "@/lib/useSaveScore";
+import { useGameGestureHandlers } from "@/lib/gesture/useGameGestures";
 
 // 52-cell main loop as [row,col] on a 15x15 grid, clockwise from Red start.
 const PATH: [number, number][] = [
@@ -249,6 +250,20 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
       return () => clearTimeout(t);
     }
   }, [turn, phase, roll, humanColors]);
+
+  // Game-specific gestures: swipe down rolls the dice on your turn; tapping
+  // the game area while choosing moves the first movable token. These are
+  // delivered only while the "game:ludo" context is active.
+  useGameGestureHandlers("ludo", {
+    "swipe-down": () => {
+      if (phase === "roll" && humanColors.includes(turn)) roll(turn);
+    },
+    tap: () => {
+      if (phase === "select" && movable.length > 0 && humanColors.includes(turn)) {
+        applyMove(turn, movable[0], dice);
+      }
+    },
+  });
 
   useEffect(() => {
     cancelled.current = false;

@@ -1,5 +1,8 @@
 "use client";
 
+import { speechLang } from "@/lib/i18n";
+import { Sfx, SFX_LIST } from "./sfx";
+
 // Realistic sound engine — real recorded effects, one unique file per action.
 // SFX sources: Google Sound Library for apps (actions.google.com/sounds) +
 // studio-grade foley crafted for this app (public/sounds/realistic/).
@@ -7,36 +10,8 @@
 // Ladders and Carrom each have their OWN tune; every other game plays the hub tune.
 // No duplicates — every name below maps to a distinct, verified file.
 
-export type Sfx =
-  | "click"
-  | "select"
-  | "dice"
-  | "move"
-  | "capture"
-  | "pocket"
-  | "ladder"
-  | "snake"
-  | "snake_bite"
-  | "turn"
-  | "win"
-  | "lose"
-  | "carrom_strike"
-  | "snake_ladder_roll"
-  | "ludo_dice"
-  | "ludo_token"
-  | "background_music"
-  | "cricket_bat"
-  | "cricket_boundary"
-  | "cricket_wicket"
-  | "checkers_move"
-  | "chess_move"
-  | "card_shuffle"
-  | "coin_drop"
-  | "level_up"
-  | "bounce"
-  | "button"
-  | "basketball_bounce"
-  | "football_kick";
+export type { Sfx };
+export { SFX_LIST };
 
 type Settings = { sfx: boolean; music: boolean; volume: number; voice: boolean };
 
@@ -44,8 +19,8 @@ const SKEY = "arcade_sound_settings";
 
 // One-physical-sound, one-file mapping (md5-unique — verified, zero duplicates)
 const SOUND_FILES: Record<Sfx, string> = {
-  click: "/sounds/click.wav",                                    // Kenney Interface click (CC0)
-  select: "/sounds/select.wav",                                  // Kenney Interface confirmation (CC0)
+  click: "/sounds/realistic/uisfx-click.mp3",                   // real recorded press (uisfx CC0)
+  select: "/sounds/realistic/uisfx-select.mp3",                 // real recorded select chime (uisfx CC0)
   dice: "/sounds/realistic/dice-roll-wood.flac",                // 🎲 real wooden dice (OpenGameArt CC0)
   move: "/sounds/realistic/tap-wood.wav",                       // 🪵 clean board-game TAP (Kenney Impact plank CC0)
   capture: "/sounds/realistic/capture-real.wav",                 // pop + drop (real pop from web layered)
@@ -53,26 +28,26 @@ const SOUND_FILES: Record<Sfx, string> = {
   ladder: "/sounds/realistic/ladder-climb-real.wav",             // 🪜 4 real wooden footsteps (Kenney CC0)
   snake: "/sounds/realistic/snake-hiss-real.wav",                // 🐍 real air whoosh slide (OpenGameArt CC0)
   snake_bite: "/sounds/realistic/snake-bite-real.wav",           // 🐍 sharp strike (Kenney Impact CC0)
-  turn: "/sounds/turn.wav",                                      // turn notification
-  win: "/sounds/realistic/win-fanfare-real.wav",                 // 🏆 brass fanfare cadence
-  lose: "/sounds/realistic/lose-sad-real.wav",                   // sad descending wah-wah
+  turn: "/sounds/realistic/uisfx-turn.mp3",                     // real recorded notification (uisfx CC0)
+  win: "/sounds/realistic/uisfx-win.mp3",                       // 🏆 real recorded achievement fanfare (uisfx CC0)
+  lose: "/sounds/realistic/uisfx-lose.mp3",                     // real recorded "blocked" cue (uisfx CC0)
   carrom_strike: "/sounds/realistic/carrom-strike-real.wav",     // Kenney Impact plank (CC0)
   snake_ladder_roll: "/sounds/realistic/dice-roll-wood-long.flac", // 🎲 longer real dice (OpenGameArt CC0)
   ludo_dice: "/sounds/realistic/dice-rolling.wav",               // 🎲 REAL dice throw (Kenney Casino CC0)
   ludo_token: "/sounds/realistic/token-wood-move.wav",           // 🪵 clean board-game tap (Kenney CC0)
   background_music: "/sounds/music/hub-theme.mp3",               // 🎵 real loop (OpenGameArt CC-BY)
-  cricket_bat: "/sounds/cricket-bat.wav",                        // Kenney Impact punch (CC0)
+  cricket_bat: "/sounds/realistic/uisfx-bat.mp3",               // 🏏 real recorded double knock (uisfx CC0)
   cricket_boundary: "/sounds/realistic/crowd-win.ogg",           // 📣 crowd roar (Google Sound Library)
   cricket_wicket: "/sounds/realistic/cricket-wicket.ogg",        // wicket rattle
   checkers_move: "/sounds/realistic/token-wood-move.wav",        // 🪵 board tap (Kenney CC0)
   chess_move: "/sounds/realistic/token-wood-move.wav",           // 🪵 board tap (Kenney CC0)
   card_shuffle: "/sounds/realistic/card-shuffle-real.wav",       // real riffle shuffle (Kenney Casino CC0)
-  coin_drop: "/sounds/coin-drop.wav",                            // 🪙 Kenney Casino chip (CC0)
-  level_up: "/sounds/realistic/slide-whistle.ogg",               // ⬆️ rising slide whistle
-  bounce: "/sounds/bounce.wav",                                  // real boing (OpenGameArt CC0)
-  button: "/sounds/realistic/ui-tick.ogg",                       // tick (Google Sound Library)
-  basketball_bounce: "/sounds/basketball-bounce.wav",            // Kenney Impact soft (CC0)
-  football_kick: "/sounds/football-kick.wav",                    // Kenney Impact punch (CC0)
+  coin_drop: "/sounds/realistic/uisfx-coin.mp3",                // 🪙 real recorded metal drop (uisfx CC0)
+  level_up: "/sounds/realistic/uisfx-levelup.mp3",              // ⬆️ real recorded level-up (uisfx CC0)
+  bounce: "/sounds/realistic/uisfx-bounce.mp3",                 // real recorded rubber drop (uisfx CC0)
+  button: "/sounds/realistic/uisfx-button.mp3",                 // real recorded minimal press (uisfx CC0)
+  basketball_bounce: "/sounds/realistic/uisfx-bball.mp3",       // 🏀 real recorded rubber snap (uisfx CC0)
+  football_kick: "/sounds/realistic/uisfx-kick.mp3",            // ⚽ real recorded organic thud (uisfx CC0)
 };
 
 // 🎵 Per-game background music — each of the user's favourites has its own tune;
@@ -91,6 +66,12 @@ class SoundEngine {
   private musicBuffer: AudioBuffer | null = null;
   private theme: string = "hub";
   private playingUrl: string = "";
+  /** Generation counter: bumped on every stop — an in-flight async startMusic()
+   *  checks it after each await and bails, so music can NEVER start after the
+   *  user turned it off or left the game (the old race that let music play
+   *  while the toggle said Off). */
+  private musicGen = 0;
+  private tempHiddenPaused = false;
   settings: Settings = { sfx: true, music: false, volume: 0.7, voice: true };
   private listeners = new Set<() => void>();
   private audioCache = new Map<string, HTMLAudioElement>();
@@ -180,13 +161,35 @@ class SoundEngine {
     return run;
   }
 
-  /** Load a buffer for a sfx name (cached), with API-route fallback. */
+  /** Bumped whenever the player uploads/replaces a recording in Sound Studio,
+   *  so every device fetches the new file instead of a cached one. */
+  private userSoundVer(): number {
+    if (typeof window === "undefined") return 0;
+    try { return Number(localStorage.getItem("arcade_user_sounds_v") ?? "0") || 0; } catch { return 0; }
+  }
+
+  /** Call after an upload/reset so the new recording is used immediately. */
+  refreshUserSounds() {
+    const v = this.userSoundVer();
+    for (const key of [...this.bufferCache.keys()]) {
+      if (key.includes("/api/sounds/user/")) this.bufferCache.delete(key);
+    }
+    for (const key of [...this.failedUrls]) {
+      if (key.includes(`/api/sounds/user/`) && key.includes(`v=${v}`) === false) this.failedUrls.delete(key);
+    }
+  }
+
+  /** Load a buffer for a sfx name (cached). Order:
+   *  1. player's own recording uploaded in Sound Studio (published via DB),
+   *  2. the built-in recorded file in /public/sounds,
+   *  3. the /api/sounds file-serving fallback route. */
   private async bufferFor(name: Sfx): Promise<AudioBuffer | null> {
     const file = SOUND_FILES[name];
     const apiFile = `/api/sounds/${file.split("/").pop()}`;
+    const userFile = `/api/sounds/user/${name}?v=${this.userSoundVer()}`;
     const ctx = this.ensure();
     if (!ctx) return null;
-    for (const url of [file, apiFile]) {
+    for (const url of [userFile, file, apiFile]) {
       const buffer = await this.loadBuffer(url);
       if (buffer) return buffer;
     }
@@ -246,16 +249,42 @@ class SoundEngine {
     }
   }
 
+  /** True while a music track is actually audible right now. */
+  get isMusicPlaying(): boolean {
+    if (this.musicSource) return true;
+    const m = (this as any).musicAudioElement as HTMLAudioElement | undefined;
+    return !!(m && !m.paused && !m.ended);
+  }
+
+  /** Internal halt that does NOT bump the generation (used when switching tracks). */
+  private haltMusic() {
+    this.playingUrl = "";
+    if ((this as any).musicAudioElement) {
+      try {
+        (this as any).musicAudioElement.pause();
+        (this as any).musicAudioElement = null;
+      } catch {}
+    }
+    if (this.musicSource) {
+      try { this.musicSource.stop(); } catch {}
+      this.musicSource = null;
+    }
+  }
+
   async startMusic(gameId?: string) {
     if (gameId !== undefined) this.theme = gameId && GAME_MUSIC[gameId] ? gameId : "hub";
+    const gen = this.musicGen; // captured: any stopMusic() after this bails us out
     const ctx = this.ensure();
     if (!ctx) return;
     const url = this.musicUrl();
     if (this.musicSource && this.playingUrl === url) return;
-    if (this.musicSource) this.stopMusic();
+    if (this.musicSource) this.haltMusic();
 
     try {
       const buffer = (await this.loadBuffer(url)) || (await this.loadBuffer("/sounds/music/hub-theme.mp3"));
+      // RACE FIX: if the user turned music off / left the game / switched theme
+      // while the buffer was loading, do NOT start it.
+      if (gen !== this.musicGen || !this.settings.music) return;
       if (buffer && ctx) {
         if (!this.musicGain) {
           this.musicGain = ctx.createGain();
@@ -274,10 +303,15 @@ class SoundEngine {
 
     // Fallback try HTMLAudio for background music
     try {
+      if (gen !== this.musicGen || !this.settings.music) return; // same race guard
       const audio = new Audio(url);
       audio.loop = true;
       audio.volume = 0.08 * this.settings.volume;
       await audio.play().catch(() => {});
+      if (gen !== this.musicGen || !this.settings.music) { // and after play()
+        try { audio.pause(); } catch {}
+        return;
+      }
       (this as any).musicAudioElement = audio;
       this.playingUrl = url;
       return;
@@ -287,22 +321,43 @@ class SoundEngine {
   }
 
   stopMusic() {
-    this.playingUrl = "";
-    if ((this as any).musicAudioElement) {
-      try {
-        (this as any).musicAudioElement.pause();
-        (this as any).musicAudioElement = null;
-      } catch {}
-    }
-    if (this.musicSource) {
-      try { this.musicSource.stop(); } catch {}
-      this.musicSource = null;
-    }
+    this.musicGen++; // invalidates any in-flight startMusic()
+    this.tempHiddenPaused = false;
+    this.haltMusic();
+  }
+
+  /** Pause music while the tab/app is hidden; resumed by resumeMusicFromHidden(). */
+  pauseMusicForHidden() {
+    if (!this.isMusicPlaying) return;
+    this.tempHiddenPaused = true;
+    if (this.musicGain) this.musicGain.gain.value = 0;
+    const m = (this as any).musicAudioElement as HTMLAudioElement | undefined;
+    if (m) { try { m.pause(); } catch {} }
+  }
+
+  /** Resume after the tab becomes visible again — but only if music is still ON. */
+  resumeMusicFromHidden() {
+    if (!this.tempHiddenPaused) return;
+    this.tempHiddenPaused = false;
+    if (!this.settings.music) return; // user turned it off while hidden
+    if (this.musicGain) this.musicGain.gain.value = 0.08 * this.settings.volume;
+    const m = (this as any).musicAudioElement as HTMLAudioElement | undefined;
+    if (m) m.play().catch(() => {});
   }
 
   setSfx(on: boolean) {
     this.settings = { ...this.settings, sfx: on };
     if (on) this.play("click");
+    this.emit();
+  }
+
+  /** In-game TalkBack voice: when ON, every announce() is also SPOKEN aloud
+   *  via speechSynthesis — the games are fully playable without the phone's
+   *  system TalkBack. */
+  setVoice(on: boolean) {
+    this.settings = { ...this.settings, voice: on };
+    if (on) this.speak("Game voice on. I will read out every move.");
+    else this.cancelSpeech();
     this.emit();
   }
 
@@ -315,9 +370,11 @@ class SoundEngine {
 
   setVolume(vol: number) {
     this.settings = { ...this.settings, volume: Math.max(0, Math.min(1, vol)) };
-    if (this.musicGain) {
+    if (this.musicGain && !this.tempHiddenPaused) {
       this.musicGain.gain.value = 0.08 * this.settings.volume;
     }
+    const m = (this as any).musicAudioElement as HTMLAudioElement | undefined;
+    if (m) m.volume = 0.08 * this.settings.volume;
     this.emit();
   }
 
@@ -339,33 +396,48 @@ class SoundEngine {
   // one call. No-op on browsers without speechSynthesis (e.g. some iOS WebViews).
 
   private _wasMusicPlayingBeforeTts = false;
+  private _musicGainBeforeTts: number | null = null;
   private _ttsBusy = false;
   private _ttsQueue: Array<() => void> = [];
 
-  /** Speak a line with automatic music ducking. */
+  /** Speak a line with automatic music ducking (WebAudio source AND HTMLAudio fallback). */
   speak(text: string, opts: { rate?: number; pitch?: number; volume?: number } = {}) {
     if (typeof window === "undefined" || typeof window.speechSynthesis === "undefined") return;
     if (!this.settings.voice) return; // user has voice prompts off
     const synth = window.speechSynthesis;
     const perform = () => {
       this._ttsBusy = true;
-      // Duck: pause music if it's playing, remember so we can resume.
+      // Duck: mute music if it's playing (both playback paths), remember to resume.
       try {
-        const m = (this as any).musicAudioElement as HTMLAudioElement | undefined;
-        this._wasMusicPlayingBeforeTts = !!(m && !m.paused && !m.ended);
-        if (this._wasMusicPlayingBeforeTts) m?.pause();
+        this._wasMusicPlayingBeforeTts = this.isMusicPlaying;
+        if (this._wasMusicPlayingBeforeTts) {
+          if (this.musicGain) {
+            this._musicGainBeforeTts = this.musicGain.gain.value;
+            this.musicGain.gain.value = 0;
+          }
+          const m = (this as any).musicAudioElement as HTMLAudioElement | undefined;
+          if (m && !m.paused) m.pause();
+        }
       } catch {}
       const u = new SpeechSynthesisUtterance(text);
+      u.lang = speechLang(); // English / Telugu / Hindi narration language setting
       u.rate = opts.rate ?? 0.95;
       u.pitch = opts.pitch ?? 1.0;
       u.volume = opts.volume ?? 1.0;
       const done = () => {
         this._ttsBusy = false;
         try {
-          const m = (this as any).musicAudioElement as HTMLAudioElement | undefined;
-          if (this._wasMusicPlayingBeforeTts && this.settings.music && m) m.play().catch(() => {});
+          // Un-duck only if music is still supposed to be on.
+          if (this._wasMusicPlayingBeforeTts && this.settings.music && !this.tempHiddenPaused) {
+            if (this.musicGain && this._musicGainBeforeTts !== null) {
+              this.musicGain.gain.value = this._musicGainBeforeTts;
+            }
+            const m = (this as any).musicAudioElement as HTMLAudioElement | undefined;
+            if (m) m.play().catch(() => {});
+          }
         } catch {}
         this._wasMusicPlayingBeforeTts = false;
+        this._musicGainBeforeTts = null;
         const next = this._ttsQueue.shift();
         if (next) next();
       };
@@ -420,8 +492,28 @@ if (typeof window !== "undefined") {
           soundInstance.ensureContext();
         }
       }
+      // Music saved as ON should actually start on the first user gesture
+      // (autoplay policies require a gesture), even on the dashboard.
+      const s = (globalThis as any).__arcadeSound as SoundEngine | undefined;
+      if (s && s.settings.music && !s.isMusicPlaying) void s.startMusic();
     }
   }, true);
+
+  // Tab hidden / app in background → pause music; visible again → resume only
+  // if the music toggle is still ON.
+  document.addEventListener("visibilitychange", () => {
+    const s = (globalThis as any).__arcadeSound as SoundEngine | undefined;
+    if (!s) return;
+    if (document.hidden) s.pauseMusicForHidden();
+    else s.resumeMusicFromHidden();
+  });
+
+  // App/tab closed or navigated away → stop music for real (and cancel any
+  // in-flight async start so it can't begin after closing).
+  window.addEventListener("pagehide", () => {
+    const s = (globalThis as any).__arcadeSound as SoundEngine | undefined;
+    if (s) s.stopMusic();
+  });
 }
 
 export const sound =

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { sound } from "@/lib/sound";
 import { announce } from "@/lib/a11y";
 import { useSaveScore } from "@/lib/useSaveScore";
+import { useGameGestureHandlers } from "@/lib/gesture/useGameGestures";
 
 const S = 360;
 const M = 26; // margin to play area
@@ -303,18 +304,23 @@ export default function Carrom() {
   }
 
   function onDown(e: React.PointerEvent) {
+    // Isolation: the canvas owns its pointer gestures — stop them here so
+    // they can never bubble to world/hub-level handlers.
+    e.stopPropagation();
     if (phase !== "aim" || turn !== 0 || movingRef.current) return;
     const { x, y } = toLocal(e);
     aimRef.current = { active: true, x, y };
     (e.target as Element).setPointerCapture(e.pointerId);
   }
   function onMove(e: React.PointerEvent) {
+    e.stopPropagation();
     if (!aimRef.current.active) return;
     const { x, y } = toLocal(e);
     aimRef.current.x = x;
     aimRef.current.y = y;
   }
-  function onUp() {
+  function onUp(e: React.PointerEvent) {
+    e.stopPropagation();
     if (!aimRef.current.active) return;
     const st = strikerRef.current;
     const dx = st.x - aimRef.current.x;
@@ -322,15 +328,25 @@ export default function Carrom() {
     aimRef.current.active = false;
     const power = Math.min(Math.hypot(dx, dy), 130);
     if (power < 6) return;
-    const ang = Math.atan2(dy, dx);
-    const speed = power * 0.16;
+    shoot(Math.atan2(dy, dx), power * 0.16);
+  }
+
+  /** Fire the striker. Shared by drag-release, double-tap and the Shoot button. */
+  function shoot(ang: number, speed: number) {
+    const st = strikerRef.current;
     st.vx = Math.cos(ang) * speed;
     st.vy = Math.sin(ang) * speed;
     pottedThisTurn.current = [];
     movingRef.current = true;
     setPhase("moving");
-    sound.play("dice");
+    sound.play("carrom_strike");
     announce("Shot!");
+  }
+
+  /** Accessible alternative to dragging: shoot straight up from the current striker position. */
+  function shootStraight() {
+    if (phase !== "aim" || turn !== 0 || movingRef.current) return;
+    shoot(-Math.PI / 2, 14);
   }
 
   function moveStriker(x: number) {
@@ -339,6 +355,21 @@ export default function Carrom() {
     strikerRef.current.x = clamped;
     setStrikerX(clamped);
   }
+
+  // Game-specific gestures (outside the canvas, which owns its own drag-aim):
+  // swipe left/right moves the striker along the baseline, double-tap shoots.
+  // Consumed at the game surface — never interpreted as world movement.
+  useGameGestureHandlers("carrom", {
+    "swipe-left": () => {
+      moveStriker(strikerRef.current.x - 24);
+      announce(`Striker moved left to ${Math.round(strikerRef.current.x)}`);
+    },
+    "swipe-right": () => {
+      moveStriker(strikerRef.current.x + 24);
+      announce(`Striker moved right to ${Math.round(strikerRef.current.x)}`);
+    },
+    "double-tap": () => shootStraight(),
+  });
 
   // AI turn
   useEffect(() => {

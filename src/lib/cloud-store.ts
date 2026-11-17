@@ -11,13 +11,15 @@ import { instantStore } from "./instant-store";
 
 type Row = Record<string, any>;
 
+// The arcade's own Supabase project (owned by the site owner — real Postgres
+// database + Storage, see supabase-setup.sql). Env vars override if set.
 const SUPA_URL = (
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  "https://zncepqzgsidqjvkayxdr.supabase.co"
+  "https://tmkpdvljhnlnvbckbnsc.supabase.co"
 ).replace(/\/$/, "");
 const SUPA_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  "sb_publishable_-AjL8yvjLCHyz0oO4yM3hg_61ZAwgRv";
+  "sb_publishable_A1EprlCSXwkWPY7Aboww5A_DuTSoJ9x";
 
 const TABLES: Record<string, string> = {
   players: "bg_players",
@@ -27,6 +29,7 @@ const TABLES: Record<string, string> = {
   messages: "bg_messages",
   roomInvites: "bg_room_invites",
   signals: "bg_signals",
+  sounds: "bg_sounds",
 };
 
 // camelCase (app) -> snake_case (Postgres) column maps.
@@ -65,6 +68,9 @@ const COLS: Record<string, Record<string, string>> = {
   signals: {
     id: "id", roomId: "room_id", fromId: "from_id", toId: "to_id",
     kind: "kind", payload: "payload", createdAt: "created_at",
+  },
+  sounds: {
+    id: "id", name: "name", mime: "mime", data: "data", updatedAt: "updated_at",
   },
 };
 
@@ -230,6 +236,23 @@ const supaStore = {
     },
     insert: (v: Row) => one(rest("signals", { method: "POST", body: v, rep: true })),
   },
+  sounds: {
+    get: (name: string) =>
+      one(rest("sounds", { query: `name=eq.${encodeURIComponent(name)}&limit=1` })),
+    set: async (v: Row) => {
+      const existing = await one(
+        rest("sounds", { query: `name=eq.${encodeURIComponent(String(v.name))}&limit=1` }),
+      );
+      if (existing) {
+        return one(rest("sounds", {
+          method: "PATCH", query: `id=eq.${existing.id}`, body: v, rep: true,
+        }));
+      }
+      return one(rest("sounds", { method: "POST", body: v, rep: true }));
+    },
+    remove: (name: string) =>
+      rest("sounds", { method: "DELETE", query: `name=eq.${encodeURIComponent(name)}` }),
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -274,6 +297,7 @@ export const store = {
   messages: wrapSection(supaStore.messages, instantStore.messages),
   roomInvites: wrapSection(supaStore.roomInvites, instantStore.roomInvites),
   signals: wrapSection(supaStore.signals, instantStore.signals),
+  sounds: wrapSection(supaStore.sounds, instantStore.sounds),
 };
 
 /** Which backend just served data ("supabase" or "instant"). */

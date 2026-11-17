@@ -1,11 +1,12 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "@/lib/session";
 import { getGame } from "@/lib/games";
 import { useGameMusic } from "@/lib/useGameMusic";
+import { useGameGestureContext } from "@/lib/gesture/useGameGestures";
 import OnlineMatch from "@/components/games/OnlineMatch";
 import RockPaperScissors from "@/components/games/RockPaperScissors";
 import Memory from "@/components/games/Memory";
@@ -47,6 +48,11 @@ function PlayPageInner({ params }: { params: { game: string } }) {
   const { game } = params;
   // 🎵 Every game plays its own background music theme (when music is ON)
   useGameMusic(game);
+  // 🎮 Gesture isolation: while this game is open, its own gesture controller
+  // is the ONLY active context; the hub/world controller is suspended until
+  // the player leaves the game (restored automatically on unmount).
+  const gestureSurfaceRef = useRef<HTMLDivElement>(null);
+  useGameGestureContext(game, gestureSurfaceRef);
   const { player, loading } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -106,7 +112,12 @@ function PlayPageInner({ params }: { params: { game: string } }) {
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-        <div>
+        <div
+          ref={gestureSurfaceRef}
+          className="gesture-surface"
+          data-gesture-context={`game:${game}`}
+          aria-label={`${info.name} game area. Game gestures are active here.`}
+        >
           {game === "tic-tac-toe" && (
             <OnlineMatch game="tic-tac-toe" initialMatchId={initialMatchId} />
           )}

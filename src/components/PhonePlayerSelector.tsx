@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { sound } from "@/lib/sound";
+import { announce } from "@/lib/a11y";
 
 export type PhonePlayer = {
   id: number;
@@ -86,7 +87,7 @@ export default function PhonePlayerSelector({ game, maxPlayers = 4, onPlayersCha
     }
     if (players.some(p => p.color === selectedColor)) {
       sound.play("lose");
-      alert(`Color ${selectedColor} already taken! Choose another color.`);
+      announce(`Color ${selectedColor} is already taken — choose another color.`);
       return;
     }
 
@@ -111,7 +112,7 @@ export default function PhonePlayerSelector({ game, maxPlayers = 4, onPlayersCha
 
   const removePlayer = (id: number) => {
     if (players.length <= 1) {
-      alert("Need at least 1 player!");
+      announce("Need at least 1 player!");
       return;
     }
     const updated = players.filter(p => p.id !== id);

@@ -9,6 +9,7 @@ import type { RoomMember } from "@/db/schema";
 import RoomChat from "@/components/room/RoomChat";
 import VoiceCall from "@/components/room/VoiceCall";
 import { sound } from "@/lib/sound";
+import { useHubGestureContext } from "@/lib/gesture/useGameGestures";
 
 type Room = {
   id: number;
@@ -48,6 +49,9 @@ function RoomPageInner({ params }: { params: { id: string } }) {
   const [online, setOnline] = useState<OnlineP[]>([]);
   const [invited, setInvited] = useState<number[]>([]);
   const [notFound, setNotFound] = useState(false);
+
+  // Hub/world gesture context for the room screen (suspended while in a game).
+  useHubGestureContext();
 
   const info = getGame(room?.game ?? "");
 

@@ -1,13 +1,14 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import Link from "next/link";
 import { sound } from "@/lib/sound";
 
 export default function AudioControls() {
   const settings = useSyncExternalStore(
     (cb) => sound.subscribe(cb),
     () => sound.settings,
-    () => ({ sfx: true, music: false }),
+    () => ({ sfx: true, music: false, volume: 0.7, voice: true }),
   );
 
   return (
@@ -38,6 +39,27 @@ export default function AudioControls() {
       >
         {settings.music ? "🎵" : "🎶"}
       </button>
+      <button
+        onClick={() => sound.setVoice(!settings.voice)}
+        aria-label={settings.voice ? "Turn off in-game TalkBack voice" : "Turn on in-game TalkBack voice"}
+        aria-pressed={settings.voice}
+        title="🎙️ In-game TalkBack voice — every move is spoken aloud, no system TalkBack needed"
+        className={`grid h-11 w-11 place-items-center rounded-full border text-lg shadow-lg transition ${
+          settings.voice
+            ? "border-sky-500 bg-sky-500/20 text-sky-300"
+            : "border-slate-700 bg-slate-900 text-slate-500"
+        }`}
+      >
+        {settings.voice ? "🎙️" : "🔇🎙️"}
+      </button>
+      <Link
+        href="/sound-studio"
+        aria-label="Sound Studio — record or upload your own real sound effects"
+        title="🎛️ Sound Studio — replace any sound with your own recording"
+        className="grid h-11 w-11 place-items-center rounded-full border border-slate-700 bg-slate-900 text-lg text-slate-300 shadow-lg transition hover:bg-slate-800"
+      >
+        🎛️
+      </Link>
     </div>
   );
 }
