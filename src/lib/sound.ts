@@ -128,7 +128,12 @@ class SoundEngine {
     if (this.bufferCache.has(url)) return this.bufferCache.get(url)!;
     if (this.failedUrls.has(url)) return null;
     try {
-      const res = await fetch(url);
+      // Hard timeout: a hung fetch must NEVER wedge the serialized sfx queue
+      // (that is what made the dice "roll forever" — playAndWait never resolved).
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 5000);
+      const res = await fetch(url, { signal: ctrl.signal });
+      clearTimeout(timer);
       if (!res.ok) throw new Error("fetch failed");
       const arrayBuffer = await res.arrayBuffer();
       const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
@@ -156,11 +161,31 @@ class SoundEngine {
   // v1.9.3 — one serialized queue for ALL sound effects: no overlapping audio,
   // even when events fire back-to-back (dice → capture → win etc.).
   private chain: Promise<void> = Promise.resolve();
+  /** Bumped by stopAllSfx(): queued tasks check it and skip, so sounds queued
+   *  before the user left/closed the game can never play afterwards. */
+  private sfxGen = 0;
 
   private enqueue(task: () => Promise<void> | void): Promise<void> {
-    const run = this.chain.then(() => task());
+    const gen = this.sfxGen;
+    const run = this.chain.then(() => {
+      if (gen !== this.sfxGen) return; // cancelled while queued
+      return task();
+    });
     this.chain = run.catch(() => undefined);
     return run;
+  }
+
+  /** Drop every queued sound effect (used on page hide / tab hidden / game exit). */
+  stopAllSfx() {
+    this.sfxGen++;
+    this.chain = Promise.resolve();
+  }
+
+  /** Full audio stop: queued SFX + speech + music. */
+  stopAll() {
+    this.stopAllSfx();
+    this.cancelSpeech();
+    this.stopMusic();
   }
 
   /** Bumped whenever the player uploads/replaces a recording in Sound Studio,
@@ -545,15 +570,20 @@ if (typeof window !== "undefined") {
   document.addEventListener("visibilitychange", () => {
     const s = (globalThis as any).__arcadeSound as SoundEngine | undefined;
     if (!s) return;
-    if (document.hidden) s.pauseMusicForHidden();
-    else s.resumeMusicFromHidden();
+    if (document.hidden) {
+      s.pauseMusicForHidden();
+      s.stopAllSfx(); // no queued sound may fire while the tab/app is hidden
+      s.cancelSpeech();
+    } else {
+      s.resumeMusicFromHidden();
+    }
   });
 
-  // App/tab closed or navigated away → stop music for real (and cancel any
-  // in-flight async start so it can't begin after closing).
+  // App/tab closed or navigated away → stop ALL audio for real: queued sound
+  // effects, speech and music (so no sound "follows" after closing the game).
   window.addEventListener("pagehide", () => {
     const s = (globalThis as any).__arcadeSound as SoundEngine | undefined;
-    if (s) s.stopMusic();
+    if (s) s.stopAll();
   });
 }
 

@@ -90,53 +90,62 @@ export default function SnakeLadder() {
       if (busy || winner !== null) return;
       setBusy(true);
       setRolling(true);
-      // Compute the roll first so we can announce it in sync with the dice animation.
-      const roll = 1 + Math.floor(Math.random() * 6);
-      await sound.playAndWait("dice", 3000);
-      setDice(roll);
-      setRolling(false);
-      announce(`${names[player]} rolled ${numWord(roll)}`);
-      const landed = await step(player, roll);
-      if (cancelled.current) return;
-      if (landed >= 100) {
-        setWinner(player);
-        if (player === 0) {
-          await sound.playAndWait("win", 3200);
-          announce("You reached 100 and won the game!");
-          setMsg("🎉 You win!");
-          setWins((w) => {
-            const nw = w + 1;
-            save(nw);
-            return nw;
-          });
-        } else {
-          await sound.playAndWait("lose", 2600);
-          announce("AI reached 100 and won.");
-          setMsg("AI wins 😔");
+      try {
+        // Compute the roll first so we can announce it in sync with the dice animation.
+        const roll = 1 + Math.floor(Math.random() * 6);
+        await sound.playAndWait("dice", 3000);
+        if (cancelled.current) return;
+        setDice(roll);
+        setRolling(false);
+        announce(`${names[player]} rolled ${numWord(roll)}`);
+        const landed = await step(player, roll);
+        if (cancelled.current) return;
+        if (landed >= 100) {
+          setWinner(player);
+          if (player === 0) {
+            await sound.playAndWait("win", 3200);
+            announce("You reached 100 and won the game!");
+            setMsg("🎉 You win!");
+            setWins((w) => {
+              const nw = w + 1;
+              save(nw);
+              return nw;
+            });
+          } else {
+            await sound.playAndWait("lose", 2600);
+            announce("AI reached 100 and won.");
+            setMsg("AI wins 😔");
+          }
+          return;
         }
+        const extra = roll === 6;
+        const next = extra ? player : player === 0 ? 1 : 0;
+        setTurn(next);
+        setMsg(
+          extra
+            ? `${names[player]} rolled six — roll again!`
+            : next === 0
+              ? "Your turn — roll the dice!"
+              : "AI's turn…",
+        );
+      } finally {
+        // Never leave the dice spinning / the game locked, whatever happened.
+        setRolling(false);
         setBusy(false);
-        return;
       }
-      const extra = roll === 6;
-      const next = extra ? player : player === 0 ? 1 : 0;
-      setTurn(next);
-      setMsg(
-        extra
-          ? `${names[player]} rolled six — roll again!`
-          : next === 0
-            ? "Your turn — roll the dice!"
-            : "AI's turn…",
-      );
-      setBusy(false);
     },
     [busy, winner, step, save],
   );
 
-  // AI auto-roll
+  // AI auto-roll (single pending timer at a time via ref)
+  const aiTimer = useRef<number | null>(null);
   useEffect(() => {
     if (turn === 1 && winner === null && !busy) {
-      const t = setTimeout(() => rollFor(1), 700);
-      return () => clearTimeout(t);
+      aiTimer.current = window.setTimeout(() => rollFor(1), 700);
+      return () => {
+        if (aiTimer.current !== null) window.clearTimeout(aiTimer.current);
+        aiTimer.current = null;
+      };
     }
   }, [turn, winner, busy, rollFor]);
 
@@ -166,6 +175,7 @@ export default function SnakeLadder() {
     setDice(0);
     setWinner(null);
     setBusy(false);
+    setRolling(false);
     setMsg("Your turn — roll the dice!");
     sound.play("click");
   }
