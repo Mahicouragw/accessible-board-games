@@ -39,7 +39,9 @@ create table if not exists public.bg_players (
   total_games integer not null default 0,
   xp          integer not null default 0,
   created_at  timestamptz not null default now(),
-  last_seen   timestamptz not null default now()
+  last_seen   timestamptz not null default now(),
+  secret_q    text,          -- recovery question (forgot-Player-ID flow)
+  secret_a_hash text         -- sha256 of the secret answer (never plaintext)
 );
 create index if not exists bg_players_seen_idx on public.bg_players (last_seen desc);
 
