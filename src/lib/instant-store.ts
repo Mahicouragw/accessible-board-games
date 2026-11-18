@@ -182,6 +182,10 @@ export const instantStore = {
         .sort((a, b) => ts(b.lastSeen) - ts(a.lastSeen))
         .slice(0, 50),
     listAll: async (): Promise<Row[]> => (await load()).players.slice(0, 500),
+    findBySecret: async (name: string, hash: string): Promise<Row | null> =>
+      (await load()).players.find(
+        (p) => p.name === name && p.secretAHash === hash,
+      ) ?? null,
   },
   scores: {
     forPlayer: async (pid: number): Promise<Row[]> =>

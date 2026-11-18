@@ -512,6 +512,38 @@ export default function OnlineMatch({
     }
   }
 
+  // Invite a specific friend by their Player ID (they get the match request
+  // and can accept it — see /api/match/invites + InviteWatcher).
+  const [inviteCode, setInviteCode] = useState("");
+  async function inviteByCode() {
+    if (!player || !inviteCode.trim()) return;
+    setBusy(true);
+    setStage("searching");
+    announce(`Sending invite to ${inviteCode.trim().toUpperCase()}…`);
+    try {
+      const res = await fetch("/api/match/challenge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: player.code, opponentCode: inviteCode.trim(), game }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.match) throw new Error(data.error || "Invite failed");
+      const m: Match = data.match;
+      setMatch(m);
+      setYou(1);
+      youRef.current = 1;
+      prevRef.current = { turn: m.turn, status: m.status, winner: m.winner, p2: m.player2Id };
+      setStage("waiting");
+      announce(`Invite sent to ${m.player2Name}. The match starts automatically when they accept.`);
+      startPoll(m.id);
+    } catch (e) {
+      announce(e instanceof Error ? e.message : "Could not send invite.");
+      setStage("lobby");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function playAgain() {
     setMatch(null);
     setLocal(null);
@@ -533,8 +565,25 @@ export default function OnlineMatch({
               disabled={busy}
               className="w-full rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 px-4 py-4 text-lg font-bold text-white transition hover:opacity-90 disabled:opacity-50"
             >
-              🌐 Play with Players (Online)
+              🎲 Random match — online players
             </button>
+            <div className="flex gap-2">
+              <input
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                placeholder="Friend&apos;s Player ID (6 chars)"
+                maxLength={6}
+                aria-label="Friend's Player ID to invite"
+                className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 font-mono tracking-[0.2em] text-white outline-none focus:border-violet-500"
+              />
+              <button
+                onClick={inviteByCode}
+                disabled={busy || !inviteCode.trim() || !player}
+                className="shrink-0 rounded-2xl bg-gradient-to-r from-violet-500 to-fuchsia-600 px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+              >
+                ✉️ Invite
+              </button>
+            </div>
             <button
               onClick={() => find(true)}
               disabled={busy}
@@ -558,8 +607,9 @@ export default function OnlineMatch({
             </div>
           </div>
           <p className="mt-4 text-xs text-slate-500">
-            Online needs a login + cloud database. Offline modes work for everyone, no account needed.
-            Tip: from the Arcade home you can also tap an online player to invite them directly.
+            🎲 Random: you join the queue — when another player also picks Random for this game, your match starts automatically.
+            ✉️ Invite: send a match request to a friend&apos;s Player ID; they accept it from the home screen.
+            Online needs a login + the cloud database. Offline modes work for everyone, no account needed.
           </p>
         </div>
       </div>
@@ -644,6 +694,7 @@ export default function OnlineMatch({
             you={you}
             onMove={makeMove}
             disabled={!myTurn || busy}
+            aiOpponent={local ? local.mode === "ai" : !!match?.vsAi}
           />
         )}
 
@@ -754,6 +805,20 @@ function ConnectFourBoard({
   );
 }
 
+const PIECE_NAMES: Record<string, string> = {
+  p: "pawn", n: "knight", b: "bishop", r: "rook", q: "queen", k: "king",
+};
+
+// Friendly AI chatter (spoken in the game voice between moves).
+const AI_CHATTER = [
+  "Nice move!",
+  "Wow, you are playing nice!",
+  "Hmm, interesting. My turn.",
+  "Watch out — I'm thinking!",
+  "Good one. Let's see this!",
+  "You're tricky!",
+];
+
 const GLYPH: Record<string, string> = {
   wp: "♙", wn: "♘", wb: "♗", wr: "♖", wq: "♕", wk: "♔",
   bp: "♟", bn: "♞", bb: "♝", br: "♜", bq: "♛", bk: "♚",
@@ -765,15 +830,18 @@ function ChessMiniBoard({
   you,
   onMove,
   disabled,
+  aiOpponent,
 }: {
   fen: string;
   you: 1 | 2;
   onMove: (m: { from: string; to: string; promotion?: string }) => void;
   disabled: boolean;
+  aiOpponent: boolean;
 }) {
   const g = new Chess(fen);
   const [selected, setSelected] = useState<Square | null>(null);
   const [cursor, setCursor] = useState<Square>("e4"); // gesture/keyboard scan position
+  const [pieceType, setPieceType] = useState<string | null>(null); // easy-move panel
   const myColor = you === 1 ? "w" : "b";
   const targets: Square[] = selected
     ? (g.moves({ square: selected, verbose: true }) as Move[]).map((m) => m.to as Square)
@@ -781,11 +849,49 @@ function ChessMiniBoard({
 
   useEffect(() => {
     setSelected(null);
+    setPieceType(null);
   }, [fen]);
 
-  const PIECE_NAMES: Record<string, string> = {
-    p: "pawn", n: "knight", b: "bishop", r: "rook", q: "queen", k: "king",
-  };
+  // Announce every move (yours and the opponent's/AI's), captures, check and
+  // checkmate — spoken in the game voice + shown as a caption, no system
+  // TalkBack needed.
+  const prevFen = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevFen.current === fen) return;
+    const first = prevFen.current === null;
+    prevFen.current = fen;
+    if (first) return;
+    const gg = new Chess(fen);
+    const hist = gg.history({ verbose: true }) as Move[];
+    const last = hist[hist.length - 1];
+    if (last) {
+      const who = last.color === myColor ? "You" : aiOpponent ? "AI" : "Opponent";
+      const pieceName = PIECE_NAMES[last.piece] ?? last.piece;
+      const cap = last.captured
+        ? `, capturing the ${last.color === "w" ? "black" : "white"} ${PIECE_NAMES[last.captured] ?? "piece"}!`
+        : "";
+      announce(
+        `${who} moved ${last.color === "w" ? "white" : "black"} ${pieceName} from ${last.from.toUpperCase()} to ${last.to.toUpperCase()}${cap}.`,
+      );
+      sound.play(last.captured ? "capture" : "move");
+      if (last.color !== myColor && aiOpponent && Math.random() < 0.45) {
+        const line = AI_CHATTER[Math.floor(Math.random() * AI_CHATTER.length)];
+        setTimeout(() => announce(line), 1000);
+      }
+    }
+    if (gg.isCheckmate()) {
+      const iWon = gg.turn() !== myColor; // side to move is checkmated
+      announce(iWon ? "Checkmate! You win! 🏆" : "Checkmate! The AI wins. Can you escape next time? 😔");
+      sound.play(iWon ? "win" : "lose");
+    } else if (gg.isCheck()) {
+      announce(gg.turn() === myColor ? "Check! Your king is under attack!" : "Check! You attacked the king!");
+      sound.play("turn");
+    } else if (gg.isStalemate() || gg.isDraw()) {
+      announce("Game over — it's a draw. 🤝");
+      sound.play("turn");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fen]);
 
   function describeSquare(sq: Square): string {
     const piece = g.get(sq);
@@ -804,7 +910,6 @@ function ChessMiniBoard({
       sound.play("select");
       onMove({ from: selected, to: sq, promotion: "q" });
       setSelected(null);
-      announce(`Moved ${selected} to ${sq}`);
       return;
     }
     const piece = g.get(sq);
@@ -854,6 +959,7 @@ function ChessMiniBoard({
   const colOrder = you === 1 ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0];
 
   return (
+    <div>
     <div
       data-gesture-lock="all"
       className="grid aspect-square w-full overflow-hidden rounded-xl border-4 border-amber-900 shadow-2xl"
@@ -902,6 +1008,78 @@ function ChessMiniBoard({
           );
         }),
       )}
+    </div>
+
+      {/* Easy move panel: piece buttons (Pawn/Knight/...) → destination options
+          like "E2 → E4" — designed for game TalkBack, no precise square tapping. */}
+      {!disabled && g.turn() === myColor && (() => {
+        const mine = (g.moves({ verbose: true }) as Move[]).filter((m) => m.color === myColor);
+        const byType: Record<string, Move[]> = {};
+        for (const m of mine) {
+          (byType[m.piece] = byType[m.piece] ?? []).push(m);
+        }
+        const types = Object.keys(byType).sort((a, b) => byType[b].length - byType[a].length);
+        if (!types.length) return null;
+        return (
+          <div className="mt-3 rounded-2xl border border-slate-700 bg-slate-900/80 p-3">
+            <div className="mb-2 text-xs font-bold text-slate-300">
+              🎯 Easy moves — {pieceType ? `pick a destination for your ${PIECE_NAMES[pieceType]}` : "pick a piece, then a destination (from → to)"}
+            </div>
+            {pieceType === null ? (
+              <div className="grid grid-cols-3 gap-2">
+                {types.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      setPieceType(t);
+                      sound.play("select");
+                      const opts = byType[t].map((m) => `${m.from.toUpperCase()} to ${m.to.toUpperCase()}`).join(", ");
+                      announce(`${byType[t].length} ${PIECE_NAMES[t]} moves: ${opts}`);
+                    }}
+                    aria-label={`${PIECE_NAMES[t]}, ${byType[t].length} moves available`}
+                    className="rounded-xl bg-slate-800 px-2 py-3 text-sm font-bold text-white transition hover:bg-slate-700"
+                  >
+                    <span className="text-xl">{GLYPH[myColor + t]}</span>
+                    <span className="block text-[11px] capitalize">{PIECE_NAMES[t]} ×{byType[t].length}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div>
+                <button
+                  onClick={() => setPieceType(null)}
+                  className="mb-2 rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700"
+                >
+                  ← All pieces
+                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  {byType[pieceType].map((m) => (
+                    <button
+                      key={m.from + m.to + (m.promotion ?? "")}
+                      onClick={() => {
+                        setPieceType(null);
+                        sound.play("select");
+                        onMove({ from: m.from, to: m.to, promotion: "q" });
+                      }}
+                      aria-label={`${m.captured ? "Capture" : "Move"} ${PIECE_NAMES[pieceType]} from ${m.from.toUpperCase()} to ${m.to.toUpperCase()}${m.captured ? `, capturing ${PIECE_NAMES[m.captured]}` : ""}`}
+                      className={`rounded-xl px-3 py-3 text-sm font-bold transition ${
+                        m.captured
+                          ? "bg-rose-600 text-white hover:bg-rose-500"
+                          : "bg-emerald-600 text-white hover:bg-emerald-500"
+                      }`}
+                    >
+                      {m.from.toUpperCase()} → {m.to.toUpperCase()}
+                      {m.captured && (
+                        <span className="block text-[10px]">capture {PIECE_NAMES[m.captured] ?? ""}!</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

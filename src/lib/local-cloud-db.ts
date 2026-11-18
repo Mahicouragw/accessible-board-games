@@ -14,6 +14,8 @@ type Player = {
   code: string;
   avatar: string;
   phone?: string;
+  secretQ?: string;
+  secretAHash?: string;
   wins: number;
   losses: number;
   draws: number;
@@ -160,7 +162,7 @@ function getGlobalDB(): LocalDB {
 }
 
 // Player operations
-export function createPlayer(name: string, phone?: string): Player {
+export function createPlayer(name: string, phone?: string, secret?: { q: string; aHash: string }): Player {
   const db = getGlobalDB();
   let code = genCode();
   while (db.players.has(code)) code = genCode();
@@ -181,11 +183,22 @@ export function createPlayer(name: string, phone?: string): Player {
 
   const cleanPhone = (phone ?? "").trim().slice(0, 20);
   if (cleanPhone) player.phone = cleanPhone;
+  if (secret?.q) {
+    player.secretQ = secret.q;
+    player.secretAHash = secret.aHash;
+  }
 
   db.players.set(code, player);
   db.playersById.set(player.id, player);
   console.log(`✅ Created player ${name} with code ${code} in Local Cloud DB`);
   return player;
+}
+
+export function findPlayerBySecret(name: string, aHash: string): Player | undefined {
+  const clean = name.trim();
+  return getAllPlayers().find(
+    (p) => p.name === clean && p.secretAHash === aHash,
+  );
 }
 
 export function getPlayerByCode(code: string): Player | undefined {

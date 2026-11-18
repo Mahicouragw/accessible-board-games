@@ -1,3 +1,4 @@
+import * as LocalDB from "@/lib/local-cloud-db";
 import { store, CloudNotReadyError } from "@/lib/cloud-store";
 
 export const dynamic = "force-dynamic";
@@ -21,16 +22,22 @@ export async function POST(req: Request) {
     let player;
     try {
       player = await store.players.findByCode(clean);
-      if (!player) {
-        // Real auth: a wrong ID must say so (previously it silently faked a login).
-        return Response.json({ error: "No player found with that ID. Check the code or register first." }, { status: 404 });
+      if (player) {
+        await store.players.update(player.id, { lastSeen: new Date().toISOString() });
+        const scores = await store.scores.forPlayer(player.id);
+        return Response.json({ player, scores, cloud: true });
       }
-      await store.players.update(player.id, { lastSeen: new Date().toISOString() });
-      const scores = await store.scores.forPlayer(player.id);
-      return Response.json({ player, scores, cloud: true });
+      // Cloud reachable but ID unknown — check the local DB before saying no
+      // (covers offline / not-ready states), then give a real 404.
+      const local = LocalDB.getPlayerByCode(clean);
+      if (local) return Response.json({ player: local, scores: [], cloud: false });
+      return Response.json({ error: "No player found with that ID. Check the code or register first." }, { status: 404 });
     } catch (e) {
-      if (!(e instanceof CloudNotReadyError)) throw e;
-      // Cloud not set up yet: keep guest access so solo play never breaks.
+      // Cloud unreachable / not set up (any error): local DB, then guest mode,
+      // so login never hard-fails.
+      if (!(e instanceof CloudNotReadyError)) console.warn("login cloud failed, trying local:", e);
+      const local = LocalDB.getPlayerByCode(clean);
+      if (local) return Response.json({ player: local, scores: [], cloud: false });
       return Response.json({ player: mockPlayer(clean), scores: [], cloud: false });
     }
   } catch (e) {

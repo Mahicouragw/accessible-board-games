@@ -39,6 +39,7 @@ const COLS: Record<string, Record<string, string>> = {
     wins: "wins", losses: "losses", draws: "draws",
     totalGames: "total_games", xp: "xp",
     createdAt: "created_at", lastSeen: "last_seen",
+    secretQ: "secret_q", secretAHash: "secret_a_hash",
   },
   scores: {
     id: "id", playerId: "player_id", playerName: "player_name", game: "game",
@@ -161,6 +162,10 @@ const supaStore = {
         query: `last_seen=gt.${encodeURIComponent(sinceIso)}&order=last_seen.desc&limit=50`,
       }),
     listAll: () => rest("players", { query: `limit=500` }),
+    findBySecret: (name: string, hash: string) =>
+      one(rest("players", {
+        query: `name=eq.${encodeURIComponent(name)}&secret_a_hash=eq.${encodeURIComponent(hash)}&limit=1`,
+      })),
   },
   scores: {
     forPlayer: (pid: number) =>

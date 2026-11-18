@@ -17,6 +17,7 @@ export default function SoundStudioPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [recording, setRecording] = useState<string | null>(null);
   const mediaRec = useRef<MediaRecorder | null>(null);
+  const discardRef = useRef(false);
   const chunks = useRef<Blob[]>([]);
   const fileInput = useRef<HTMLInputElement | null>(null);
   const pendingName = useRef<string>("");
@@ -101,13 +102,18 @@ export default function SoundStudioPage() {
       const rec = new MediaRecorder(stream);
       chunks.current = [];
       rec.ondataavailable = (e) => e.data.size && chunks.current.push(e.data);
+      discardRef.current = false;
       rec.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
+        setRecording(null);
+        if (discardRef.current) {
+          say(`Recording of "${name}" cancelled — nothing was saved.`);
+          return;
+        }
         const blob = new Blob(chunks.current, { type: rec.mimeType || "audio/webm" });
         const reader = new FileReader();
         reader.onload = () => upload(name, String(reader.result), blob.type);
         reader.readAsDataURL(blob);
-        setRecording(null);
       };
       mediaRec.current = rec;
       rec.start();
@@ -123,6 +129,12 @@ export default function SoundStudioPage() {
 
   const stopRecord = () => {
     if (mediaRec.current?.state === "recording") mediaRec.current.stop();
+  };
+
+  const cancelRecord = () => {
+    discardRef.current = true;
+    if (mediaRec.current?.state === "recording") mediaRec.current.stop();
+    else setRecording(null);
   };
 
   const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -172,8 +184,15 @@ export default function SoundStudioPage() {
               onClick={() => (recording === s.name ? stopRecord() : startRecord(s.name))}
               disabled={busy === s.name}
               className={`rounded-lg px-3 py-2 text-sm ${recording === s.name ? "bg-red-600 animate-pulse" : "bg-slate-800 hover:bg-slate-700"}`}
-              aria-label={recording === s.name ? `Stop recording ${s.label}` : `Record your own ${s.label}`}
+              aria-label={recording === s.name ? `Stop recording ${s.label} and save it` : `Record your own ${s.label}`}
             >{recording === s.name ? "⏹️" : "🎙️"}</button>
+            {recording === s.name && (
+              <button
+                onClick={cancelRecord}
+                className="rounded-lg bg-slate-800 px-3 py-2 text-sm hover:bg-slate-700"
+                aria-label={`Cancel recording ${s.label} without saving`}
+              >❌</button>
+            )}
             <button
               onClick={() => { pendingName.current = s.name; fileInput.current?.click(); }}
               disabled={busy === s.name}
