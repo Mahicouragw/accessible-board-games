@@ -1,19 +1,70 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "@/lib/session";
 import { GAMES } from "@/lib/games";
-import OnlinePlayers from "@/components/OnlinePlayers";
 import RoomsBrowser from "@/components/RoomsBrowser";
 import RewardsBadge from "@/components/RewardsBadge";
+import MultiplayerPanel from "@/components/MultiplayerPanel";
+import NotificationsPanel from "@/components/NotificationsPanel";
+import SettingsPanel from "@/components/SettingsPanel";
 import { useHubGestureContext } from "@/lib/gesture/useGameGestures";
 
 function level(xp: number) {
   return Math.floor(xp / 100) + 1;
 }
 
+type Tab = "games" | "multiplayer" | "rooms" | "ai" | "notifications" | "settings";
+
+const TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: "games", label: "Games", icon: "🎮" },
+  { id: "multiplayer", label: "Multiplayer", icon: "🌐" },
+  { id: "rooms", label: "Rooms", icon: "🚪" },
+  { id: "ai", label: "AI", icon: "🤖" },
+  { id: "notifications", label: "Notifications", icon: "🔔" },
+  { id: "settings", label: "Settings", icon: "⚙️" },
+];
+
+/** Live count of pending game/room invites + friend requests (for the 🔔 badge). */
+function useNotificationCount(code: string | undefined) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!code) return;
+    let active = true;
+    const load = async () => {
+      try {
+        const [m, r, f] = await Promise.all([
+          fetch(`/api/match/invites?code=${code}`).then((x) => x.json()),
+          fetch(`/api/rooms/invites?code=${code}`).then((x) => x.json()),
+          fetch(`/api/friends?code=${code}`).then((x) => x.json()),
+        ]);
+        if (active) {
+          setCount(
+            (m.invites ?? []).length + (r.invites ?? []).length + (f.pending ?? []).length,
+          );
+        }
+      } catch {
+        /* offline */
+      }
+    };
+    load();
+    const iv = setInterval(() => {
+      if (!document.hidden) load();
+    }, 8000);
+    return () => {
+      active = false;
+      clearInterval(iv);
+    };
+  }, [code]);
+  return count;
+}
+
 export default function Dashboard() {
   const { player, logout } = useSession();
+  const [tab, setTab] = useState<Tab>("games");
+  useHubGestureContext();
+  const notifCount = useNotificationCount(player?.code);
   if (!player) return null;
 
   const lvl = level(player?.xp ?? 0);
@@ -26,7 +77,7 @@ export default function Dashboard() {
           <h1 className="bg-gradient-to-r from-sky-400 to-violet-400 bg-clip-text text-3xl font-black text-transparent">
             🎮 PlayVerse Arcade
           </h1>
-          <p className="text-slate-400">Pick a game and jump in.</p>
+          <p className="text-slate-400">Pick a tab — everything is one tap away.</p>
         </div>
         <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3">
           <div className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-sky-500 to-violet-600 text-2xl">
@@ -36,14 +87,8 @@ export default function Dashboard() {
             <div className="font-semibold leading-tight">{player?.name ?? "Guest"}</div>
             <div className="font-mono text-xs text-emerald-400">ID: {player?.code ?? "GUEST"}</div>
           </div>
-          <button
-            onClick={logout}
-            className="ml-2 rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 transition hover:bg-slate-800"
-          >
-            Log out
-          </button>
+          <RewardsBadge />
         </div>
-        <RewardsBadge />
       </header>
 
       {/* Stats */}
@@ -68,71 +113,131 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Live rooms */}
-      <div className="mt-6">
-        <RoomsBrowser />
-      </div>
-
-      {/* Online players */}
-      <div className="mt-6">
-        <OnlinePlayers />
-      </div>
-
-      {/* Games grid */}
-      <h2 className="mt-8 text-xl font-bold">Choose a Game</h2>
-      <section className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {GAMES.map((g) => (
-          <Link
-            key={g.id}
-            href={`/play/${g.id}`}
-            className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 p-6 transition hover:border-slate-600 hover:shadow-2xl"
+      {/* Tabs */}
+      <nav
+        className="sticky top-0 z-40 mt-6 flex gap-1 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900/95 p-1 backdrop-blur"
+        role="tablist"
+        aria-label="Arcade sections"
+      >
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+              tab === t.id
+                ? "bg-gradient-to-r from-sky-500 to-violet-600 text-white"
+                : "text-slate-400 hover:bg-slate-800 hover:text-white"
+            }`}
           >
-            <div
-              className={`absolute -right-8 -top-8 h-28 w-28 rounded-full bg-gradient-to-br ${g.color} opacity-20 blur-2xl transition group-hover:opacity-40`}
-            />
-            <div className="text-5xl">{g.emoji}</div>
-            <h3 className="mt-4 text-lg font-bold">{g.name}</h3>
-            <p className="mt-1 text-sm text-slate-400">{g.tagline}</p>
-            <div className="mt-4 flex items-center gap-2">
-              {g.online && (
-                <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-400">
-                  Online / AI
-                </span>
-              )}
-              <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-400">
-                {g.scoreLabel}
+            <span aria-hidden>{t.icon}</span>
+            <span className="hidden sm:inline">{t.label}</span>
+            {t.id === "notifications" && notifCount > 0 && (
+              <span className="grid h-5 min-w-5 place-items-center rounded-full bg-rose-500 px-1 text-[11px] font-black text-white">
+                {notifCount}
               </span>
-            </div>
-            <div
-              className={`mt-5 inline-flex items-center gap-1 rounded-xl bg-gradient-to-r ${g.color} px-4 py-2 text-sm font-bold text-white`}
-            >
-              Play ▶
-            </div>
-          </Link>
+            )}
+          </button>
         ))}
-      </section>
+      </nav>
 
-      {/* Tools */}
-      <section className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Link
-          href="/sound-studio"
-          className="rounded-2xl border border-slate-800 bg-slate-900 p-4 transition hover:border-sky-600"
-        >
-          <div className="text-2xl">🎛️</div>
-          <div className="mt-1 font-bold">Sound Studio</div>
-          <div className="text-xs text-slate-400">Record or upload your own real sound effects — published to every player</div>
-        </Link>
-        <a
-          href="https://accessible-board-games.vercel.app"
-          target="_blank"
-          rel="noreferrer"
-          className="rounded-2xl border border-slate-800 bg-slate-900 p-4 transition hover:border-emerald-600"
-        >
-          <div className="text-2xl">🌐</div>
-          <div className="mt-1 font-bold">Live site ↗</div>
-          <div className="text-xs text-slate-400">accessible-board-games.vercel.app — share with friends to play online</div>
-        </a>
-      </section>
+      {/* Tab content */}
+      <div className="mt-6" role="tabpanel">
+        {tab === "games" && (
+          <>
+            <h2 className="text-xl font-bold">Choose a Game</h2>
+            <section className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {GAMES.map((g) => (
+                <Link
+                  key={g.id}
+                  href={`/play/${g.id}`}
+                  className="group relative overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 p-6 transition hover:border-slate-600 hover:shadow-2xl"
+                >
+                  <div
+                    className={`absolute -right-8 -top-8 h-28 w-28 rounded-full bg-gradient-to-br ${g.color} opacity-20 blur-2xl transition group-hover:opacity-40`}
+                  />
+                  <div className="text-5xl">{g.emoji}</div>
+                  <h3 className="mt-4 text-lg font-bold">{g.name}</h3>
+                  <p className="mt-1 text-sm text-slate-400">{g.tagline}</p>
+                  <div className="mt-4 flex items-center gap-2">
+                    {g.online && (
+                      <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-400">
+                        Online / AI
+                      </span>
+                    )}
+                    <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-400">
+                      {g.scoreLabel}
+                    </span>
+                  </div>
+                  <div
+                    className={`mt-5 inline-flex items-center gap-1 rounded-xl bg-gradient-to-r ${g.color} px-4 py-2 text-sm font-bold text-white`}
+                  >
+                    Play ▶
+                  </div>
+                </Link>
+              ))}
+            </section>
+
+            {/* Tools */}
+            <section className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Link
+                href="/sound-studio"
+                className="rounded-2xl border border-slate-800 bg-slate-900 p-4 transition hover:border-sky-600"
+              >
+                <div className="text-2xl">🎛️</div>
+                <div className="mt-1 font-bold">Sound Studio</div>
+                <div className="text-xs text-slate-400">Record or upload your own real sound effects — published to every player</div>
+              </Link>
+              <a
+                href="https://accessible-board-games.vercel.app"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-2xl border border-slate-800 bg-slate-900 p-4 transition hover:border-emerald-600"
+              >
+                <div className="text-2xl">🌐</div>
+                <div className="mt-1 font-bold">Live site ↗</div>
+                <div className="text-xs text-slate-400">accessible-board-games.vercel.app — share with friends to play online</div>
+              </a>
+            </section>
+          </>
+        )}
+
+        {tab === "multiplayer" && <MultiplayerPanel />}
+        {tab === "rooms" && <RoomsBrowser />}
+        {tab === "ai" && (
+          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
+            <h2 className="text-xl font-bold">🤖 Play vs the AI</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Every game has a built-in computer opponent — it works fully offline and narrates every move out loud.
+              Open a game and choose “🤖 Play vs AI” (or pick the AI difficulty when asked).
+            </p>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {GAMES.map((g) => (
+                <Link
+                  key={g.id}
+                  href={`/play/${g.id}`}
+                  className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-800/50 p-4 transition hover:border-violet-500"
+                >
+                  <span className="text-3xl">{g.emoji}</span>
+                  <div>
+                    <div className="font-bold">{g.name}</div>
+                    <div className="text-xs text-violet-300">🤖 vs AI available</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+        {tab === "notifications" && <NotificationsPanel />}
+        {tab === "settings" && <SettingsPanel />}
+        {tab === "settings" && <SettingsPanel />}
+      </div>
+
+      <p className="mt-8 text-center text-xs text-slate-600">
+        Logged in as {player?.name} ({player?.code}) ·{" "}
+        <button onClick={logout} className="underline hover:text-slate-400">Log out</button>
+      </p>
     </main>
   );
 }

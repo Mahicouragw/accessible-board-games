@@ -30,6 +30,7 @@ const TABLES: Record<string, string> = {
   roomInvites: "bg_room_invites",
   signals: "bg_signals",
   sounds: "bg_sounds",
+  friends: "bg_friends",
 };
 
 // camelCase (app) -> snake_case (Postgres) column maps.
@@ -72,6 +73,10 @@ const COLS: Record<string, Record<string, string>> = {
   },
   sounds: {
     id: "id", name: "name", mime: "mime", data: "data", updatedAt: "updated_at",
+  },
+  friends: {
+    id: "id", fromId: "from_id", fromName: "from_name",
+    toId: "to_id", toName: "to_name", status: "status", createdAt: "created_at",
   },
 };
 
@@ -162,6 +167,8 @@ const supaStore = {
         query: `last_seen=gt.${encodeURIComponent(sinceIso)}&order=last_seen.desc&limit=50`,
       }),
     listAll: () => rest("players", { query: `limit=500` }),
+    findByName: (name: string) =>
+      one(rest("players", { query: `name=ilike.${encodeURIComponent(name)}&limit=1` })),
     findBySecret: (name: string, hash: string) =>
       one(rest("players", {
         query: `name=eq.${encodeURIComponent(name)}&secret_a_hash=eq.${encodeURIComponent(hash)}&limit=1`,
@@ -241,6 +248,16 @@ const supaStore = {
     },
     insert: (v: Row) => one(rest("signals", { method: "POST", body: v, rep: true })),
   },
+  friends: {
+    forPlayer: (pid: number) =>
+      rest("friends", { query: `or=(to_id.eq.${pid},from_id.eq.${pid})&order=id.desc&limit=50` }),
+    findDup: (fromId: number, toId: number) =>
+      one(rest("friends", { query: `or=(and(from_id.eq.${fromId},to_id.eq.${toId}),and(from_id.eq.${toId},to_id.eq.${fromId}))&limit=1` })),
+    insert: (v: Row) => one(rest("friends", { method: "POST", body: v, rep: true })),
+    update: (id: number, patch: Row) =>
+      one(rest("friends", { method: "PATCH", query: `id=eq.${id}`, body: patch, rep: true })),
+    remove: (id: number) => rest("friends", { method: "DELETE", query: `id=eq.${id}` }),
+  },
   sounds: {
     get: (name: string) =>
       one(rest("sounds", { query: `name=eq.${encodeURIComponent(name)}&limit=1` })),
@@ -282,7 +299,12 @@ function wrapSection<S extends Record<string, (...args: any[]) => any>>(
         try {
           return await supa[key](...args);
         } catch (e) {
-          if (!(e instanceof CloudNotReadyError)) throw e;
+          // Any cloud failure (table not set up yet OR network unreachable)
+          // falls back to the instant local-cloud DB so the arcade NEVER goes
+          // down — solo games and multiplayer keep working offline.
+          if (!(e instanceof CloudNotReadyError)) {
+            console.warn(`[cloud-store] supabase ${key} failed, using local cloud:`, (e as Error)?.message ?? e);
+          }
           instantMode = true;
           instantSince = Date.now();
         }
@@ -303,6 +325,7 @@ export const store = {
   roomInvites: wrapSection(supaStore.roomInvites, instantStore.roomInvites),
   signals: wrapSection(supaStore.signals, instantStore.signals),
   sounds: wrapSection(supaStore.sounds, instantStore.sounds),
+  friends: wrapSection(supaStore.friends, instantStore.friends),
 };
 
 /** Which backend just served data ("supabase" or "instant"). */

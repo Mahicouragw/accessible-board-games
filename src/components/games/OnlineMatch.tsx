@@ -6,6 +6,7 @@ import { useSession } from "@/lib/session";
 import { sound } from "@/lib/sound";
 import { announce } from "@/lib/a11y";
 import { useGameGestureHandlers } from "@/lib/gesture/useGameGestures";
+import { getAiLevel } from "@/lib/player-prefs";
 
 type Match = {
   id: number;
@@ -364,13 +365,28 @@ export default function OnlineMatch({
         setBusy(false);
         return;
       }
+      // Settings → Game settings → AI strength: on "easy" the AI sometimes
+      // plays a random legal move instead of its best one.
+      const easy = getAiLevel() === "easy" && Math.random() < 0.4;
       if (game === "tic-tac-toe") {
-        const i = bestTttMove([...(c.board as number[])], 2);
+        const b = [...(c.board as number[])];
+        let i = bestTttMove(b, 2);
+        if (easy) {
+          const empties = b.map((v, k) => (v === 0 ? k : -1)).filter((k) => k >= 0);
+          if (empties.length) i = empties[Math.floor(Math.random() * empties.length)];
+        }
         if (i >= 0) applyLocalMove(i);
       } else if (game === "connect-four") {
-        applyLocalMove(bestC4Move(c.board as number[][], 2));
+        const b2 = c.board as number[][];
+        const open = [0, 1, 2, 3, 4, 5, 6].filter((col) => b2[0][col] === 0);
+        applyLocalMove(easy && open.length ? open[Math.floor(Math.random() * open.length)] : bestC4Move(b2, 2));
       } else {
-        const mv = chessAiPick((c.board as { fen: string }).fen);
+        let mv = chessAiPick((c.board as { fen: string }).fen);
+        if (easy) {
+          const g2 = new Chess((c.board as { fen: string }).fen);
+          const all = g2.moves({ verbose: true }) as Move[];
+          if (all.length) mv = all[Math.floor(Math.random() * all.length)];
+        }
         if (mv) applyLocalMove(mv);
       }
       const after = localRef.current;
