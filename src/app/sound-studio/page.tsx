@@ -9,10 +9,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { sound, SFX_LIST } from "@/lib/sound";
 import { announce } from "@/lib/a11y";
+import { useSession } from "@/lib/session";
+import { isAdminName } from "@/lib/admin";
 
 type Status = { custom: Record<string, boolean>; cloud: string; msg: string };
 
 export default function SoundStudioPage() {
+  const { player } = useSession();
+  const admin = isAdminName(player?.name);
   const [status, setStatus] = useState<Status>({ custom: {}, cloud: "…", msg: "" });
   const [busy, setBusy] = useState<string | null>(null);
   const [recording, setRecording] = useState<string | null>(null);
@@ -59,7 +63,7 @@ export default function SoundStudioPage() {
       const r = await fetch("/api/sounds/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, dataUrl, mime }),
+        body: JSON.stringify({ code: player?.code ?? "", name, dataUrl, mime }),
       });
       const j = await r.json();
       if (!r.ok || !j.ok) throw new Error(j.error || `upload failed (${r.status})`);
@@ -83,7 +87,7 @@ export default function SoundStudioPage() {
       await fetch("/api/sounds/upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, reset: true }),
+        body: JSON.stringify({ code: player?.code ?? "", name, reset: true }),
       });
       try {
         localStorage.setItem("arcade_user_sounds_v", String(Date.now()));
@@ -147,6 +151,25 @@ export default function SoundStudioPage() {
     reader.readAsDataURL(f);
   };
 
+  if (!admin) {
+    return (
+      <main className="mx-auto max-w-3xl px-4 py-8 text-slate-100">
+        <div className="mb-2 flex items-center justify-between">
+          <h1 className="text-2xl font-extrabold">🎛️ Sound Studio</h1>
+          <Link href="/" className="rounded-xl border border-slate-700 px-3 py-2 text-sm">← Back to arcade</Link>
+        </div>
+        <div className="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-6 text-center">
+          <div className="text-4xl">🔒</div>
+          <p className="mt-3 font-bold">Sound Studio is admin-only.</p>
+          <p className="mt-1 text-sm text-slate-400">
+            Only the site owner can upload and publish sound effects to every player.
+            All built-in sounds are real recorded effects (CC0) — see /sounds/ATTRIBUTION.md.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 text-slate-100">
       <div className="mb-2 flex items-center justify-between">
@@ -156,6 +179,7 @@ export default function SoundStudioPage() {
       <p className="text-sm text-slate-400">
         All game sounds are real recorded effects. Want your own? For any sound below, tap <b>🎙️ Record</b> (speak/clap/roll real dice — up to 6 s)
         or <b>📁 Upload</b> a sound file (wav/mp3/ogg/m4a, max 6 MB). It publishes instantly to <b>every player</b> via the cloud database.
+        <span className="ml-2 rounded-full bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">admin</span>
         <span className="ml-2 rounded-full bg-slate-800 px-2 py-0.5 text-xs">{status.cloud}</span>
       </p>
       {status.msg && (

@@ -56,7 +56,7 @@ const COLS: Record<string, Record<string, string>> = {
   rooms: {
     id: "id", code: "code", game: "game", hostId: "host_id",
     hostName: "host_name", members: "members", status: "status",
-    matchId: "match_id", createdAt: "created_at", updatedAt: "updated_at",
+    matchId: "match_id", meta: "meta", createdAt: "created_at", updatedAt: "updated_at",
   },
   messages: {
     id: "id", roomId: "room_id", playerId: "player_id",

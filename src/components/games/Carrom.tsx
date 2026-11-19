@@ -252,7 +252,7 @@ export default function Carrom() {
           const diff = (vb - va) * 0.95;
           a.vx += diff * nx; a.vy += diff * ny;
           b.vx -= diff * nx; b.vy -= diff * ny;
-          if (Math.abs(va - vb) > 2) sound.play("move");
+          if (Math.abs(va - vb) > 2) sound.play("carrom_rebound");
         }
       }
     }
@@ -267,7 +267,7 @@ export default function Carrom() {
           } else {
             pottedThisTurn.current.push(p.kind);
           }
-          sound.play("pocket");
+          sound.play("carrom_pocket");
         }
       }
     }
@@ -339,7 +339,7 @@ export default function Carrom() {
     pottedThisTurn.current = [];
     movingRef.current = true;
     setPhase("moving");
-    sound.play("carrom_strike");
+    sound.play("carrom_wood_strike");
     announce("Shot!");
   }
 

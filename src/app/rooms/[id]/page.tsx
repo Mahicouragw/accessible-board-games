@@ -8,6 +8,7 @@ import { getGame } from "@/lib/games";
 import type { RoomMember } from "@/db/schema";
 import RoomChat from "@/components/room/RoomChat";
 import VoiceCall from "@/components/room/VoiceCall";
+import TeamSetup from "@/components/room/TeamSetup";
 import { sound } from "@/lib/sound";
 import { useHubGestureContext } from "@/lib/gesture/useGameGestures";
 
@@ -19,6 +20,7 @@ type Room = {
   hostName: string;
   members: RoomMember[];
   status: string;
+  meta?: any;
 };
 
 type OnlineP = { id: number; name: string; code: string; avatar: string };
@@ -48,6 +50,8 @@ function RoomPageInner({ params }: { params: { id: string } }) {
   const [role, setRole] = useState<"player" | "spectator">("player");
   const [online, setOnline] = useState<OnlineP[]>([]);
   const [invited, setInvited] = useState<number[]>([]);
+  const [inviteName, setInviteName] = useState("");
+  const [inviteMsg, setInviteMsg] = useState("");
   const [notFound, setNotFound] = useState(false);
 
   // Hub/world gesture context for the room screen (suspended while in a game).
@@ -152,6 +156,30 @@ function RoomPageInner({ params }: { params: { id: string } }) {
     });
   }
 
+  // Invite by NAME — Player IDs are only for logging in.
+  async function inviteByName() {
+    const name = inviteName.trim();
+    if (!player?.code || !name) return;
+    sound.play("click");
+    setInviteMsg("");
+    try {
+      const res = await fetch(`/api/rooms/${roomId}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: player.code, opponentName: name }),
+      });
+      const j = await res.json();
+      if (res.ok && j.ok) {
+        setInviteMsg(`✅ Invite sent to ${name} — they'll see it in 🔔 Notifications.`);
+        setInviteName("");
+      } else {
+        setInviteMsg(`❌ ${j.error ?? "could not send invite"}`);
+      }
+    } catch {
+      setInviteMsg("❌ network error — try again");
+    }
+  }
+
   if (loading) {
     return (
       <div className="grid min-h-screen place-items-center">
@@ -253,6 +281,18 @@ function RoomPageInner({ params }: { params: { id: string } }) {
             )}
           </section>
 
+          {/* Teams & captains (host sets countries/captains; captains pick striker/bowler) */}
+          {room && (
+            <TeamSetup
+              roomId={roomId}
+              hostId={room.hostId}
+              members={members}
+              meta={room.meta}
+              meId={player?.id ?? null}
+              myCode={player?.code ?? ""}
+            />
+          )}
+
           {/* Play the game */}
           {info?.online && (
             <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
@@ -273,8 +313,25 @@ function RoomPageInner({ params }: { params: { id: string } }) {
           <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
             <h2 className="text-lg font-bold">➕ Invite Players</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Invite anyone online to join this room (up to 4 players, unlimited spectators).
+              Invite by the player&apos;s NAME (up to 4 players, unlimited spectators) — IDs are only for logging in.
             </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <input
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+                placeholder="Player's name (e.g. Asha)"
+                aria-label="Player's name to invite"
+                className="w-52 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm outline-none focus:border-sky-500"
+              />
+              <button
+                onClick={inviteByName}
+                disabled={!inviteName.trim()}
+                className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+              >
+                ✉️ Send invite
+              </button>
+            </div>
+            {inviteMsg && <p className="mt-2 text-xs text-sky-300" role="status">{inviteMsg}</p>}
             {online.length === 0 ? (
               <p className="mt-3 text-sm text-slate-500">No other players online right now.</p>
             ) : (

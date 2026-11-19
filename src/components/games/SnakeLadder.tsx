@@ -62,7 +62,7 @@ export default function SnakeLadder() {
       // ladder or snake
       if (LADDERS[target]) {
         const to = LADDERS[target];
-        await sound.playAndWait("ladder", 2500);
+        await sound.playAndWait("ladder_climb", 2500);
         announce(`${names[player]} climbed a ladder from ${target} to ${to}!`);
         setMsg(`${names[player]} climbed a ladder to ${to}! 🪜`);
         await delay(120);
@@ -70,7 +70,7 @@ export default function SnakeLadder() {
         target = to;
       } else if (SNAKES[target]) {
         const to = SNAKES[target];
-        await sound.playAndWait("snake_bite", 900);
+        await sound.playAndWait("snake_hit", 900);
         announce(`${names[player]} was bitten by a snake on square ${target}!`);
         await delay(200);
         await sound.playAndWait("snake", 1600);

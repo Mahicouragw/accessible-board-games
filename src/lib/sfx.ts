@@ -36,7 +36,31 @@ export type Sfx =
   | "basketball_bounce"
   | "football_kick"
   | "swipe"
-  | "press";
+  | "press"
+  // 🎵 Game Hall SFX pack additions (real CC0 recordings, public/sounds/pack/)
+  | "carrom_wood_strike"
+  | "carrom_rebound"
+  | "carrom_pocket"
+  | "ludo_capture"
+  | "dice_roll_wood"
+  | "chess_capture"
+  | "chess_piece_move"
+  | "ladder_climb"
+  | "snake_hit"
+  | "cricket_ball"
+  | "cricket_run1"
+  | "cricket_run2"
+  | "cricket_run3"
+  | "cricket_run4"
+  | "cricket_run5"
+  | "cricket_run6"
+  | "cricket_win"
+  | "cricket_lose"
+  | "cricket_defeat"
+  | "cricket_whistle"
+  | "victory_applause"
+  | "victory_fanfare"
+  | "defeat_trombone";
 
 export const SFX_LIST: { name: Sfx; label: string; emoji: string }[] = [
   { name: "click", label: "UI click", emoji: "👆" },
@@ -70,6 +94,29 @@ export const SFX_LIST: { name: Sfx; label: string; emoji: string }[] = [
   { name: "background_music", label: "Background music", emoji: "🎵" },
   { name: "swipe", label: "Swipe gesture", emoji: "👆" },
   { name: "press", label: "Press / tap", emoji: "👆" },
+  { name: "carrom_wood_strike", label: "Carrom wood strike", emoji: "💥" },
+  { name: "carrom_rebound", label: "Carrom rebound", emoji: "🔄" },
+  { name: "carrom_pocket", label: "Carrom coin pocket", emoji: "🕳️" },
+  { name: "ludo_capture", label: "Ludo token capture", emoji: "💥" },
+  { name: "dice_roll_wood", label: "Wood dice shuffle", emoji: "🎲" },
+  { name: "chess_capture", label: "Chess capture", emoji: "⚔️" },
+  { name: "chess_piece_move", label: "Chess piece place", emoji: "♟️" },
+  { name: "ladder_climb", label: "Ladder footsteps", emoji: "🪜" },
+  { name: "snake_hit", label: "Snake hit", emoji: "🐍" },
+  { name: "cricket_ball", label: "Cricket ball hit", emoji: "🏏" },
+  { name: "cricket_run1", label: "Cricket run 1", emoji: "1️⃣" },
+  { name: "cricket_run2", label: "Cricket run 2", emoji: "2️⃣" },
+  { name: "cricket_run3", label: "Cricket run 3", emoji: "3️⃣" },
+  { name: "cricket_run4", label: "Cricket run 4", emoji: "4️⃣" },
+  { name: "cricket_run5", label: "Cricket run 5", emoji: "5️⃣" },
+  { name: "cricket_run6", label: "Cricket run 6", emoji: "6️⃣" },
+  { name: "cricket_win", label: "Cricket win jingle", emoji: "🏆" },
+  { name: "cricket_lose", label: "Cricket lose", emoji: "😞" },
+  { name: "cricket_defeat", label: "Cricket defeat", emoji: "🎺" },
+  { name: "cricket_whistle", label: "Cricket whistle", emoji: "🫰" },
+  { name: "victory_applause", label: "Victory applause", emoji: "👏" },
+  { name: "victory_fanfare", label: "Victory fanfare", emoji: "🎺" },
+  { name: "defeat_trombone", label: "Defeat trombone", emoji: "📉" },
 ];
 
 export const SFX_NAMES: Sfx[] = SFX_LIST.map((s) => s.name);

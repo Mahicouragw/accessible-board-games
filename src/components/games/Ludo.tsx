@@ -161,7 +161,7 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
         }
         if (captured) {
           setTokens({ ...working });
-          await sound.playAndWait("capture", 900);
+          await sound.playAndWait("ludo_capture", 900);
           announce(`${color} captured an opponent's token!`);
           await delay(150);
         }
@@ -209,7 +209,7 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
       setRolling(true);
       // Announce FIRST, then play dice, so TalkBack is in sync with the dice animation.
       const r = 1 + Math.floor(Math.random() * 6);
-      await sound.playAndWait("ludo_dice", 2600);
+      await sound.playAndWait("dice_roll_wood", 2600);
       setDice(r);
       setRolling(false);
       announce(`${color} rolled ${numWord(r)}`);
@@ -448,18 +448,12 @@ export default function Ludo({ humanColors = ["red"], onMove }: Props) {
 
       {/* 4 Players Info */}
       <div className="mt-3 rounded-xl bg-slate-800/50 border border-slate-700 p-2">
-        <div className="text-xs font-bold text-violet-400">👥 4 Players — Each Chooses One Colour — Realistic Sounds:</div>
+        <div className="text-xs font-bold text-violet-400">👥 4 Players — Each Chooses One Colour</div>
         <div className="grid grid-cols-2 gap-1 mt-1 text-[11px] text-slate-400">
           <div>🔴 Red: {humanColors.includes("red") ? "You (Human)" : "AI"}</div>
           <div>🟢 Green: {humanColors.includes("green") ? "You (Human)" : "AI"}</div>
           <div>🟡 Yellow: {humanColors.includes("yellow") ? "You (Human)" : "AI"}</div>
           <div>🔵 Blue: {humanColors.includes("blue") ? "You (Human)" : "AI"}</div>
-        </div>
-        <div className="mt-2 flex gap-2">
-          <button onClick={() => sound.play("ludo_dice")} className="rounded-lg bg-slate-700 px-2 py-1 text-[10px]">Dice 🔊</button>
-          <button onClick={() => sound.play("ludo_token")} className="rounded-lg bg-slate-700 px-2 py-1 text-[10px]">Token 🔊</button>
-          <button onClick={() => sound.play("win")} className="rounded-lg bg-emerald-600 px-2 py-1 text-[10px] text-white">Win 🎉</button>
-          <button onClick={() => sound.setMusic(!sound.settings.music)} className="rounded-lg bg-violet-600 px-2 py-1 text-[10px] text-white">Music {sound.settings.music ? "On" : "Off"} 🎵</button>
         </div>
         <div className="mt-1 text-[10px] text-slate-500">TalkBack: All token buttons have aria-label with position, move status, colour. Leather token moving enhanced.</div>
       </div>
