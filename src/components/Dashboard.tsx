@@ -7,21 +7,24 @@ import { GAMES } from "@/lib/games";
 import RoomsBrowser from "@/components/RoomsBrowser";
 import RewardsBadge from "@/components/RewardsBadge";
 import MultiplayerPanel from "@/components/MultiplayerPanel";
+import LocalMultiPanel from "@/components/LocalMultiPanel";
 import NotificationsPanel from "@/components/NotificationsPanel";
 import SettingsPanel from "@/components/SettingsPanel";
+import QuickA11y from "@/components/QuickA11y";
 import { useHubGestureContext } from "@/lib/gesture/useGameGestures";
 
 function level(xp: number) {
   return Math.floor(xp / 100) + 1;
 }
 
-type Tab = "games" | "multiplayer" | "rooms" | "ai" | "notifications" | "settings";
+type Tab = "home" | "games" | "multiplayer" | "local" | "rooms" | "notifications" | "settings";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: "home", label: "Home", icon: "🏠" },
   { id: "games", label: "Games", icon: "🎮" },
   { id: "multiplayer", label: "Multiplayer", icon: "🌐" },
+  { id: "local", label: "Local Multi", icon: "👥" },
   { id: "rooms", label: "Rooms", icon: "🚪" },
-  { id: "ai", label: "AI", icon: "🤖" },
   { id: "notifications", label: "Notifications", icon: "🔔" },
   { id: "settings", label: "Settings", icon: "⚙️" },
 ];
@@ -62,7 +65,7 @@ function useNotificationCount(code: string | undefined) {
 
 export default function Dashboard() {
   const { player, logout } = useSession();
-  const [tab, setTab] = useState<Tab>("games");
+  const [tab, setTab] = useState<Tab>("home");
   useHubGestureContext();
   const notifCount = useNotificationCount(player?.code);
   if (!player) return null;
@@ -144,6 +147,26 @@ export default function Dashboard() {
 
       {/* Tab content */}
       <div className="mt-6" role="tabpanel">
+        {tab === "home" && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
+              <h2 className="text-xl font-bold">👋 Welcome, {player?.name ?? "Guest"}!</h2>
+              <p className="mt-2 text-sm text-slate-400">
+                🎮 <b>Games</b> — pick any game; each one can be played vs the AI right inside the game.
+                🌐 <b>Multiplayer</b> — see who&apos;s online, challenge them by name, chat privately, send friend requests.
+                👥 <b>Local Multi</b> — 2 or 4 players on this one device, pass-and-play.
+                🚪 <b>Rooms</b> — create a room (up to 24 members + spectators), pick a game, play together.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button onClick={() => setTab("games")} className="rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 px-4 py-2.5 text-sm font-bold text-white">🎮 Browse games</button>
+                <button onClick={() => setTab("multiplayer")} className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-2.5 text-sm font-bold text-white">🌐 Multiplayer</button>
+                <button onClick={() => setTab("rooms")} className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-2.5 text-sm font-bold text-white">🚪 Rooms</button>
+                <a href="https://accessible-board-games.vercel.app" target="_blank" rel="noreferrer" className="rounded-xl border border-sky-700 bg-sky-500/15 px-4 py-2.5 text-sm font-semibold text-sky-300 hover:bg-sky-500/30">🌐 Live site ↗</a>
+              </div>
+            </section>
+            <QuickA11y />
+          </div>
+        )}
         {tab === "games" && (
           <>
             <h2 className="text-xl font-bold">Choose a Game</h2>
@@ -196,33 +219,9 @@ export default function Dashboard() {
         )}
 
         {tab === "multiplayer" && <MultiplayerPanel />}
+        {tab === "local" && <LocalMultiPanel />}
         {tab === "rooms" && <RoomsBrowser />}
-        {tab === "ai" && (
-          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-            <h2 className="text-xl font-bold">🤖 Play vs the AI</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Every game has a built-in computer opponent — it works fully offline and narrates every move out loud.
-              Open a game and choose “🤖 Play vs AI” (or pick the AI difficulty when asked).
-            </p>
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {GAMES.map((g) => (
-                <Link
-                  key={g.id}
-                  href={`/play/${g.id}`}
-                  className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-800/50 p-4 transition hover:border-violet-500"
-                >
-                  <span className="text-3xl">{g.emoji}</span>
-                  <div>
-                    <div className="font-bold">{g.name}</div>
-                    <div className="text-xs text-violet-300">🤖 vs AI available</div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
         {tab === "notifications" && <NotificationsPanel />}
-        {tab === "settings" && <SettingsPanel />}
         {tab === "settings" && <SettingsPanel />}
       </div>
 

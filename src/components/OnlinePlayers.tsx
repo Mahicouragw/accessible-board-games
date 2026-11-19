@@ -87,6 +87,30 @@ export default function OnlinePlayers() {
     }
   }
 
+  async function openChat(name: string) {
+    if (!player || sending) return;
+    setSending(true);
+    setMsg(null);
+    sound.play("click");
+    try {
+      const res = await fetch("/api/dm/open", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: player.code, toName: name }),
+      });
+      const data = await res.json();
+      if (data.room) {
+        announce(`Private chat with ${name} opened.`);
+        router.push(`/rooms/${data.room.id}`);
+      } else if (data.error) {
+        setMsg(data.error);
+        announce(data.error);
+      }
+    } finally {
+      setSending(false);
+    }
+  }
+
   async function addFriend(name: string) {
     if (!player) return;
     sound.play("click");
@@ -126,7 +150,7 @@ export default function OnlinePlayers() {
 
       {players.length === 0 ? (
         <p className="mt-4 text-sm text-slate-500">
-          No one else is online right now. Invite a friend to log in, then challenge them here by NAME — or send a friend request so they appear in your 🔔 Notifications.
+          No one else is online right now. Invite a friend to log in, then challenge them by NAME, open a 💬 private chat, or send a friend request so they appear in your 🔔 Notifications.
         </p>
       ) : (
         <ul className="mt-4 space-y-2">
@@ -153,6 +177,14 @@ export default function OnlinePlayers() {
                     title="Send a friend request by name"
                   >
                     {isFriend ? "👫 Friend" : isPending ? "⏳ Sent" : "➕ Friend"}
+                  </button>
+                  <button
+                    onClick={() => openChat(p.name)}
+                    disabled={sending}
+                    className="rounded-xl border border-emerald-500/60 px-3 py-2 text-xs font-bold text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-40"
+                    title="Open a private 1-to-1 chat"
+                  >
+                    💬 Chat
                   </button>
                   <button
                     onClick={() => setPicking(picking === p.name ? null : p.name)}

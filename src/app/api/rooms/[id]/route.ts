@@ -7,8 +7,47 @@ export async function GET(
   { params }: { params: { id: string } },
 ) {
   try {
-    const room = await store.rooms.byId(Number(params.id));
+    const roomId = Number(params.id);
+    const room = await store.rooms.byId(roomId);
     if (!room) return Response.json({ error: "not found" }, { status: 404 });
+
+    // 👀 Presence tracking: a member whose heartbeat is older than 60 s counts as
+    // offline. On transitions, post system messages so everyone in the room sees
+    // "X left the room (offline)" / "X joined the room (back online)" by NAME.
+    try {
+      const since = new Date(Date.now() - 60_000).toISOString();
+      const onlineRows = await store.players.onlineSince(since);
+      const onlineIds = new Set(onlineRows.map((p) => Number(p.id)));
+      const prev: Record<string, boolean> =
+        (room as any).meta && typeof (room as any).meta.presence === "object"
+          ? (room as any).meta.presence
+          : {};
+      const next: Record<string, boolean> = {};
+      const members = Array.isArray(room.members) ? room.members : [];
+      let changed = false;
+      for (const m of members) {
+        const isOnline = onlineIds.has(Number(m.id));
+        next[String(m.id)] = isOnline;
+        const was = prev[String(m.id)];
+        if (was !== undefined && was !== isOnline) {
+          changed = true;
+          await store.messages.insert({
+            roomId, playerId: m.id, playerName: m.name, avatar: m.avatar,
+            kind: "system",
+            content: isOnline ? `${m.name} joined the room (back online)` : `${m.name} left the room (offline)`,
+          });
+        }
+      }
+      if (changed || Object.keys(prev).length === 0) {
+        const meta = { ...((room as any).meta ?? {}), presence: next };
+        await store.rooms.update(roomId, { meta, updatedAt: new Date().toISOString() });
+        const fresh = await store.rooms.byId(roomId);
+        return Response.json({ room: fresh ?? room, cloud: true });
+      }
+    } catch (presenceErr) {
+      console.error("presence tracking failed", presenceErr);
+    }
+
     return Response.json({ room, cloud: true });
   } catch (e) {
     if (e instanceof CloudNotReadyError) {

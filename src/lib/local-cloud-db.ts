@@ -346,10 +346,14 @@ export function joinRoom(roomId: number, playerCode: string, asSpectator = false
 
   const existing = room.members.find(m => m.id === player.id);
   if (existing) {
+    existing.name = player.name;   // always show the player's real name
+    existing.avatar = player.avatar;
     return { room, role: existing.role };
   }
 
-  const role = asSpectator || room.members.filter(m => m.role === "player").length >= 4 ? "spectator" : "player";
+  const MAX_MEMBERS = 24;
+  if (room.members.length >= MAX_MEMBERS) return null;
+  const role = asSpectator || room.members.filter(m => m.role === "player").length >= MAX_MEMBERS ? "spectator" : "player";
   const member: RoomMember = {
     id: player.id,
     name: player.name,
@@ -368,7 +372,7 @@ export function joinRoom(roomId: number, playerCode: string, asSpectator = false
     playerName: player.name,
     avatar: player.avatar,
     kind: "system",
-    content: `${player.name} joined as ${role}`,
+    content: role === "spectator" ? `${player.name} joined the room as a spectator` : `${player.name} joined the room`,
     createdAt: new Date(),
   });
   db.messages.set(roomId, msgs);
@@ -384,10 +388,7 @@ export function leaveRoom(roomId: number, playerCode: string) {
 
   room.members = room.members.filter(m => m.id !== player.id);
   room.updatedAt = new Date();
-
-  if (room.members.length === 0) {
-    room.status = "closed";
-  }
+  // Room stays open until the owner deletes it — never auto-closed on leave.
 
   const msgs = db.messages.get(roomId) || [];
   msgs.push({
@@ -397,7 +398,7 @@ export function leaveRoom(roomId: number, playerCode: string) {
     playerName: player.name,
     avatar: player.avatar,
     kind: "system",
-    content: `${player.name} left`,
+    content: `${player.name} left the room`,
     createdAt: new Date(),
   });
   db.messages.set(roomId, msgs);

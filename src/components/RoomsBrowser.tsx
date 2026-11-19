@@ -31,7 +31,10 @@ export default function RoomsBrowser() {
       try {
         const res = await fetch("/api/rooms");
         const data = await res.json();
-        if (active) setRooms(data.rooms ?? []);
+        if (active) {
+          // Public rooms only — private chats (game "chat") live in the 🌐 Multiplayer tab.
+          setRooms((data.rooms ?? []).filter((r: Room) => GAMES.some((g) => g.id === r.game)));
+        }
       } catch {
         /* ignore */
       }
@@ -94,7 +97,7 @@ export default function RoomsBrowser() {
         <div>
           <h2 className="text-lg font-bold">🎉 Live Rooms</h2>
           <p className="text-sm text-slate-400">
-            Create a party, invite up to 4 players, chat, voice & call — or jump into any live room.
+            Create a room, pick a game, invite up to 24 members (players + spectators), chat, voice &amp; call — rooms stay open until the owner deletes them.
           </p>
         </div>
         <button
@@ -139,7 +142,7 @@ export default function RoomsBrowser() {
           {rooms.map((r) => {
             const g = getGame(r.game);
             const playerCount = r.members.filter((m) => m.role === "player").length;
-            const full = playerCount >= 4;
+            const full = r.members.length >= 24;
             return (
               <li
                 key={r.id}
@@ -149,9 +152,9 @@ export default function RoomsBrowser() {
                   {g?.emoji ?? "🎮"}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-semibold">{g?.name ?? r.game}</div>
+                  <div className="truncate font-semibold">{r.hostName}&apos;s {g?.name ?? r.game} room</div>
                   <div className="text-xs text-slate-400">
-                    Host {r.hostName} · {playerCount}/4 players
+                    Host {r.hostName} 👑 · {r.members.length}/24 members ({playerCount} players)
                     {r.status === "playing" && " · 🔴 live"}
                   </div>
                   <div className="mt-0.5 flex -space-x-1">

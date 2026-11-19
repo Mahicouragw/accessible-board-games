@@ -20,7 +20,8 @@ let pass = 0, fail = 0;
 const check = (name, cond) => { if (cond) { pass++; console.log('  ✓', name); } else { fail++; console.log('  ✗ FAIL:', name); } };
 
 // ---- every game in the arcade resolves to a real entry ----
-check('all 20 games registered in the arcade', GAMES.length === 20);
+check('all 23 games registered in the arcade', GAMES.length === 23);
+check('new games present', ['dice-race', 'sound-simon', 'reaction-rush'].every(id => !!getGame(id)));
 check('every game id unique', new Set(GAMES.map(g => g.id)).size === GAMES.length);
 check('chess / tic-tac-toe / connect-four present and marked online-capable',
   ['chess', 'tic-tac-toe', 'connect-four'].every(id => getGame(id)?.online === true));

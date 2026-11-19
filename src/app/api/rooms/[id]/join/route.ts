@@ -25,11 +25,19 @@ export async function POST(
     const members: RoomMember[] = Array.isArray(room.members) ? [...room.members] : [];
     const existing = members.find((m) => m.id === player.id);
 
+    // 🚪 Rooms hold up to 24 members total (players + spectators).
+    const MAX_MEMBERS = 24;
+    if (!existing && members.length >= MAX_MEMBERS) {
+      return Response.json({ error: `Room is full (${MAX_MEMBERS}/${MAX_MEMBERS})` }, { status: 400 });
+    }
+
     const playerCount = members.filter((m) => m.role === "player").length;
-    const wantSpectator = Boolean(asSpectator) || playerCount >= 4;
+    const wantSpectator = Boolean(asSpectator) || playerCount >= MAX_MEMBERS;
     const role: RoomMember["role"] = wantSpectator ? "spectator" : "player";
 
     if (existing) {
+      // Re-join: always refresh to the CURRENT name/avatar from the server record
+      // so the room always shows the player's real name, never a stale code.
       existing.name = player.name;
       existing.avatar = player.avatar;
     } else {
@@ -37,7 +45,7 @@ export async function POST(
       await store.messages.insert({
         roomId, playerId: player.id, playerName: player.name,
         avatar: player.avatar, kind: "system",
-        content: `${player.name} joined as ${role}`,
+        content: role === "spectator" ? `${player.name} joined the room as a spectator` : `${player.name} joined the room`,
       });
     }
 
