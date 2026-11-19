@@ -63,11 +63,11 @@ function build(pairs: number, theme: Theme, mode: Mode): Card[] {
   return deck;
 }
 
-export default function Memory() {
-  const save = useSaveScore("memory");
+export default function Memory({ forceMode }: { forceMode?: Mode } = {}) {
+  const save = useSaveScore(forceMode === "sounds" ? "sound-memory" : "memory");
   const [pairs, setPairs] = useState<4 | 6 | 8 | 10>(8);
   const [theme, setTheme] = useState<Theme>("emojis");
-  const [mode, setMode] = useState<Mode>("pictures");
+  const [mode, setMode] = useState<Mode>(forceMode ?? "pictures");
   const [opponent, setOpponent] = useState<Opponent>("solo");
   const [started, setStarted] = useState(false);
 
@@ -270,6 +270,7 @@ export default function Memory() {
             </div>
           </div>
 
+          {!forceMode && (
           <div className="mt-3">
             <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">👁 / 🔊 Mode</div>
             <div className="flex gap-2" role="group" aria-label="Mode">
@@ -277,6 +278,12 @@ export default function Memory() {
               <button aria-pressed={mode === "sounds"} onClick={() => { sound.play("select"); setMode("sounds"); }} className={pill(mode === "sounds")}>🔊 Sound memory — match by sound!</button>
             </div>
           </div>
+          )}
+          {forceMode === "sounds" && (
+            <p className="mt-3 rounded-xl bg-violet-500/10 border border-violet-500/40 px-3 py-2 text-sm text-violet-200">
+              🔊 SOUND MEMORY mode: every card hides a real sound — flip a card to HEAR it, then find its matching sound. Playable entirely by ear!
+            </p>
+          )}
 
           <div className="mt-3">
             <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">🤖 Opponent</div>
@@ -290,7 +297,7 @@ export default function Memory() {
             onClick={startGame}
             className="mt-5 min-h-14 w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-lg font-black text-white focus:outline-none focus:ring-4 focus:ring-yellow-400"
           >
-            ▶️ Start — {pairs} pairs · {mode === "sounds" ? "🔊 sounds" : THEMES[theme].label} · {opponent === "ai" ? "🤖 vs AI" : "😌 solo"}
+            ▶️ Start — {pairs} pairs · {forceMode === "sounds" ? "🔊 SOUND memory" : mode === "sounds" ? "🔊 sounds" : THEMES[theme].label} · {opponent === "ai" ? "🤖 vs AI" : "😌 solo"}
           </button>
         </div>
       )}

@@ -358,7 +358,7 @@ export default function FourPlayerPhoneInvite({ game, onPlayersReady, roomCode: 
           <button onClick={() => sound.setMusic(!sound.settings.music)} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${sound.settings.music ? "bg-violet-600 text-white" : "bg-slate-700 text-slate-300"}`}>🎵 Music {sound.settings.music ? "On" : "Off"}</button>
           <button onClick={() => sound.setSfx(!sound.settings.sfx)} className={`rounded-lg px-3 py-1.5 text-xs ${sound.settings.sfx ? "bg-sky-600 text-white" : "bg-slate-700 text-slate-400"}`}>🔊 SFX {sound.settings.sfx ? "On" : "Off"}</button>
         </div>
-        <div className="mt-2 text-[10px] text-slate-500">Real WAV files from public/sounds/ — dice-roll, token-move, ladder, snake, win, background-music lo-fi loop — Plays via Web Audio, fallback synthesis</div>
+        <div className="mt-2 text-[10px] text-slate-500">Real recorded files from public/sounds/ (Game Hall SFX pack + realistic foley) — played via Web Audio, no synthesized sounds anywhere</div>
       </div>
 
       {players.length === 4 && (

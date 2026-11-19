@@ -209,7 +209,7 @@ const supaStore = {
     byCode: (code: string) =>
       one(rest("rooms", { query: `code=eq.${encodeURIComponent(code)}&limit=1` })),
     listOpen: () =>
-      rest("rooms", { query: `status=neq.closed&order=updated_at.desc&limit=30` }),
+      rest("rooms", { query: `status=neq.closed&order=updated_at.desc&limit=100` }),
     insert: (v: Row) => one(rest("rooms", { method: "POST", body: v, rep: true })),
     update: (id: number, patch: Row) =>
       one(rest("rooms", { method: "PATCH", query: `id=eq.${id}`, body: patch, rep: true })),

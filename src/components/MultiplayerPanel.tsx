@@ -90,6 +90,25 @@ export default function MultiplayerPanel() {
         </div>
       </section>
 
+      {/* 🎮 Every game — open any of them and choose vs AI / local / online inside the game */}
+      <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
+        <h3 className="text-lg font-bold">🎮 All games (incl. Snake &amp; Ladder, Carrom, Ludo…)</h3>
+        <p className="mt-1 text-xs text-slate-500">
+          Open a game and pick your mode inside: 🌐 online (random/invite), 🤖 vs AI, or 👥 local pass-and-play.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {GAMES.map((g) => (
+            <Link
+              key={g.id}
+              href={`/play/${g.id}`}
+              className={`rounded-2xl bg-gradient-to-r ${g.color} px-3 py-2 text-xs font-bold text-white transition hover:opacity-90`}
+            >
+              {g.emoji} {g.name}
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {/* Online players with challenge-by-name + friend request + private chat */}
       <OnlinePlayers />
 

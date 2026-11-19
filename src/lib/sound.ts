@@ -18,9 +18,13 @@ type Settings = { sfx: boolean; music: boolean; volume: number; voice: boolean }
 const SKEY = "arcade_sound_settings";
 
 // One-physical-sound, one-file mapping (md5-unique — verified, zero duplicates)
+/** Owner rule: no in-game sound effect may play longer than 2 seconds
+ *  (applies to 4/6 crowd claps, win applause, ladder climbs, whistles, …). */
+const SFX_MAX_MS = 2000;
+
 const SOUND_FILES: Record<Sfx, string> = {
-  click: "/sounds/realistic/uisfx-click.mp3",                   // real recorded press (uisfx CC0)
-  select: "/sounds/realistic/uisfx-select.mp3",                 // real recorded select chime (uisfx CC0)
+  click: "/sounds/pack/ludo-capture.ogg",                       // 🔊 real wood knock tap (CC0)
+  select: "/sounds/pack/chess-piece-move.mp3",                  // 🔊 real piece-confirm thock (CC0)
   dice: "/sounds/realistic/dice-roll-wood.flac",                // 🎲 real wooden dice (OpenGameArt CC0)
   move: "/sounds/realistic/tap-wood.wav",                       // 🪵 clean board-game TAP (Kenney Impact plank CC0)
   capture: "/sounds/realistic/capture-real.wav",                 // pop + drop (real pop from web layered)
@@ -28,15 +32,15 @@ const SOUND_FILES: Record<Sfx, string> = {
   ladder: "/sounds/realistic/ladder-climb-real.wav",             // 🪜 4 real wooden footsteps (Kenney CC0)
   snake: "/sounds/realistic/snake-hiss-real.wav",                // 🐍 real air whoosh slide (OpenGameArt CC0)
   snake_bite: "/sounds/realistic/snake-bite-real.wav",           // 🐍 sharp strike (Kenney Impact CC0)
-  turn: "/sounds/realistic/uisfx-turn.mp3",                     // real recorded notification (uisfx CC0)
-  win: "/sounds/realistic/uisfx-win.mp3",                       // 🏆 real recorded achievement fanfare (uisfx CC0)
-  lose: "/sounds/realistic/uisfx-lose.mp3",                     // real recorded "blocked" cue (uisfx CC0)
+  turn: "/sounds/pack/cricket-whistle.mp3",                     // 🔔 real whistle "your turn" (CC0)
+  win: "/sounds/pack/victory-fanfare.mp3",                      // 🏆 REAL ta-da fanfare recording (CC0)
+  lose: "/sounds/pack/defeat-trombone.mp3",                     // 😞 REAL sad-trombone defeat recording (CC0)
   carrom_strike: "/sounds/realistic/carrom-strike-real.wav",     // Kenney Impact plank (CC0)
   snake_ladder_roll: "/sounds/realistic/dice-roll-wood-long.flac", // 🎲 longer real dice (OpenGameArt CC0)
   ludo_dice: "/sounds/realistic/dice-rolling.wav",               // 🎲 REAL dice throw (Kenney Casino CC0)
   ludo_token: "/sounds/realistic/token-wood-move.wav",           // 🪵 clean board-game tap (Kenney CC0)
   background_music: "/sounds/music/hub-theme.mp3",               // 🎵 real loop (OpenGameArt CC-BY)
-  cricket_bat: "/sounds/realistic/uisfx-bat.mp3",               // 🏏 real recorded double knock (uisfx CC0)
+  cricket_bat: "/sounds/pack/cricket-ball.mp3",                 // 🏏 REAL bat crack recording (CC0)
   cricket_boundary: "/sounds/realistic/crowd-win.ogg",           // 📣 crowd roar (Google Sound Library)
   cricket_wicket: "/sounds/realistic/cricket-wicket.ogg",        // wicket rattle
   checkers_move: "/sounds/realistic/token-wood-move.wav",        // 🪵 board tap (Kenney CC0)
@@ -45,11 +49,11 @@ const SOUND_FILES: Record<Sfx, string> = {
   coin_drop: "/sounds/realistic/uisfx-coin.mp3",                // 🪙 real recorded metal drop (uisfx CC0)
   level_up: "/sounds/realistic/uisfx-levelup.mp3",              // ⬆️ real recorded level-up (uisfx CC0)
   bounce: "/sounds/realistic/uisfx-bounce.mp3",                 // real recorded rubber drop (uisfx CC0)
-  button: "/sounds/realistic/uisfx-button.mp3",                 // real recorded minimal press (uisfx CC0)
+  button: "/sounds/pack/carrom-rebound.ogg",                    // 🔊 real wood tick (CC0)
   basketball_bounce: "/sounds/realistic/uisfx-bball.mp3",       // 🏀 real recorded rubber snap (uisfx CC0)
   football_kick: "/sounds/realistic/uisfx-kick.mp3",            // ⚽ real recorded organic thud (uisfx CC0)
-  swipe: "/sounds/realistic/uisfx-swipe.mp3",                    // 👆 real recorded swipe whoosh (uisfx CC0)
-  press: "/sounds/realistic/uisfx-press.mp3",                    // 👆 real recorded press (uisfx CC0)
+  swipe: "/sounds/realistic/snake-hiss-real.wav",                // 👆 real air whoosh (OpenGameArt CC0)
+  press: "/sounds/pack/carrom-wood-strike.wav",                 // 👆 real cue-strike tick (MIT)
   // 🎵 Game Hall SFX pack (real recordings in public/sounds/pack/, CC0 + MIT)
   carrom_wood_strike: "/sounds/pack/carrom-wood-strike.wav",     // 8-Ball-Pool-Java cue_hit (MIT)
   carrom_rebound: "/sounds/pack/carrom-rebound.ogg",             // rubberduck rebound (CC0)
@@ -170,8 +174,9 @@ class SoundEngine {
     }
   }
 
-  /** Zero-latency WebAudio playback of a decoded buffer (no element churn). */
-  private playBuffer(buffer: AudioBuffer, gainScale = 0.8) {
+  /** Zero-latency WebAudio playback of a decoded buffer (no element churn).
+   *  maxMs optionally stops the sound early (e.g. crowd claps capped at 2 s). */
+  private playBuffer(buffer: AudioBuffer, gainScale = 0.8, maxMs?: number) {
     const ctx = this.ensure();
     if (!ctx) return;
     if (ctx.state === "suspended") void ctx.resume();
@@ -180,7 +185,8 @@ class SoundEngine {
     const g = ctx.createGain();
     g.gain.value = this.settings.volume * gainScale;
     src.connect(g).connect(ctx.destination);
-    src.start(0);
+    if (maxMs && maxMs > 0 && maxMs / 1000 < buffer.duration) src.start(0, 0, maxMs / 1000);
+    else src.start(0);
   }
 
   // v1.9.3 — one serialized queue for ALL sound effects: no overlapping audio,
@@ -248,8 +254,10 @@ class SoundEngine {
     return null;
   }
 
-  /** Fire-and-forget play, serialized (never overlaps other SFX). */
-  play(name: Sfx) {
+  /** Fire-and-forget play, serialized (never overlaps other SFX).
+   *  Owner rule: EVERY effect plays at most 2 s — pass maxMs to override. */
+  play(name: Sfx, maxMs?: number) {
+    maxMs = Math.min(maxMs ?? SFX_MAX_MS, SFX_MAX_MS);
     if (!this.settings.sfx) return;
     // Rewards hook: any game that plays win/lose feeds the fair coin economy.
     if (name === "win" || name === "lose") {
@@ -259,7 +267,7 @@ class SoundEngine {
     }
     void this.enqueue(async () => {
       const buffer = await this.bufferFor(name);
-      if (buffer) this.playBuffer(buffer);
+      if (buffer) this.playBuffer(buffer, 0.8, maxMs);
       else console.warn(`sound unavailable: ${name} (${SOUND_FILES[name]})`);
     });
   }
@@ -270,16 +278,17 @@ class SoundEngine {
    * to announce the square only after the tap finished — no overlap, no
    * delayed announcements, no extra sounds.
    */
-  playAndWait(name: Sfx, maxMs = 3000): Promise<void> {
+  playAndWait(name: Sfx, maxMs = SFX_MAX_MS): Promise<void> {
     if (!this.settings.sfx) return Promise.resolve();
+    const cap = Math.min(maxMs, SFX_MAX_MS);
     return this.enqueue(async () => {
       const buffer = await this.bufferFor(name);
       if (!buffer) {
         console.warn(`sound unavailable: ${name} (${SOUND_FILES[name]})`);
         return;
       }
-      this.playBuffer(buffer);
-      const waitMs = Math.min(buffer.duration * 1000, maxMs);
+      this.playBuffer(buffer, 0.8, cap);
+      const waitMs = Math.min(buffer.duration * 1000, cap);
       await new Promise((r) => setTimeout(r, waitMs));
     });
   }

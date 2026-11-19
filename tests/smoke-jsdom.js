@@ -10,6 +10,7 @@ const GAMES = [
   "snake", "ludo", "snake-ladder", "carrom", "chess", "cricket",
   "hand-cricket", "checkers", "dominoes", "sudoku", "minesweeper",
   "football-penalty", "tetris", "basketball", "monster-battle",
+  "dice-race", "sound-simon", "reaction-rush", "sound-memory",
 ];
 const PAGES = ["/", "/sound-studio", ...GAMES.map((g) => `/play/${g}`)];
 
@@ -80,6 +81,13 @@ async function loadPage(path) {
 
 (async () => {
   let fail = 0;
+  if (process.env.HOME_TEXT_CHECK) {
+    const { errors, text } = await loadPage("/");
+    console.log("Vs AI tab on home:", text.includes("Vs AI"));
+    console.log("tab labels:", ["Home","Games","Multiplayer","Local Multi","Vs AI","Rooms","Notifications","Settings"].map((t) => t + "=" + text.includes(t)).join(" "));
+    console.log("errors:", errors.length ? errors.slice(0,3) : "none");
+    process.exit(0);
+  }
   for (const p of PAGES) {
     try {
       const { errors, text, buttons } = await loadPage(p);

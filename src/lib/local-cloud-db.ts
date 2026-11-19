@@ -335,7 +335,7 @@ export function getOpenRooms(): Room[] {
   return Array.from(db.rooms.values())
     .filter(r => r.status !== "closed")
     .sort((a,b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-    .slice(0, 30);
+    .slice(0, 100);
 }
 
 export function joinRoom(roomId: number, playerCode: string, asSpectator = false): { room: Room, role: "player" | "spectator" } | null {
