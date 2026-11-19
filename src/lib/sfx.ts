@@ -1,7 +1,7 @@
 // Canonical catalog of every sound effect in the arcade.
 // Shared by the sound engine (sound.ts), the Sound Studio upload page and the
 // upload API (so names can never drift out of sync).
-// Every effect is a REAL RECORDED file (public/sounds, CC0/CC-BY — see
+// Every effect is a REAL RECORDED file (public/sounds, CC0/MIT — see
 // public/sounds/ATTRIBUTION.md); players can replace any of them with their
 // own recording from /sound-studio and it publishes to everyone via the DB.
 
@@ -37,7 +37,7 @@ export type Sfx =
   | "football_kick"
   | "swipe"
   | "press"
-  // 🎵 Game Hall SFX pack additions (real CC0 recordings, public/sounds/pack/)
+  // 🎵 Game Hall SFX pack additions (real recordings, public/sounds/pack/, CC0 + MIT)
   | "carrom_wood_strike"
   | "carrom_rebound"
   | "carrom_pocket"
@@ -58,6 +58,7 @@ export type Sfx =
   | "cricket_lose"
   | "cricket_defeat"
   | "cricket_whistle"
+  | "sneak_hit"
   | "victory_applause"
   | "victory_fanfare"
   | "defeat_trombone";
@@ -114,6 +115,7 @@ export const SFX_LIST: { name: Sfx; label: string; emoji: string }[] = [
   { name: "cricket_lose", label: "Cricket lose", emoji: "😞" },
   { name: "cricket_defeat", label: "Cricket defeat", emoji: "🎺" },
   { name: "cricket_whistle", label: "Cricket whistle", emoji: "🫰" },
+  { name: "sneak_hit", label: "Sneaky out hit", emoji: "🤫" },
   { name: "victory_applause", label: "Victory applause", emoji: "👏" },
   { name: "victory_fanfare", label: "Victory fanfare", emoji: "🎺" },
   { name: "defeat_trombone", label: "Defeat trombone", emoji: "📉" },

@@ -32,29 +32,39 @@ Players can replace ANY effect with their own recording in /sound-studio.
 | `realistic/uisfx-swipe.mp3` | arcade/swipe (gesture whoosh) |
 | `realistic/uisfx-press.mp3` | arcade/press (tap tick) |
 
-## Game Hall SFX pack additions (`pack/`, all CC0 1.0 — Kenney audio packs)
-Real recorded effects from Kenney's audio packs (https://kenney.nl/assets, CC0 1.0),
-mirrored at github.com/ismetcabbar9-oss/kenney-audio-assets. Pack names follow the
-Game Hall SFX pack (game-hall-sfx-pack.zip) so owner-supplied files can drop in
-with the same filenames and replace these 1:1.
+## Game Hall SFX pack (`pack/`, real recordings — CC0 1.0 + MIT)
+Real recorded effects from the owner's `game-hall-sfx-pack.zip` (verified against
+its `audio-manifest.json` sha256 per file; full credits in the pack's
+`AUDIO_CREDITS.md`). 21 files are CC0 1.0 (Freesound / BigSoundBank / OpenGameArt
+clips); 2 files are MIT with the permission notice bundled in `licenses/`.
 
-| File | Kenney source | Pack |
-|---|---|---|
-| `pack/carrom-wood-strike.ogg` | RPG sounds / chop | RPG Audio |
-| `pack/carrom-rebound.ogg` | Casino sounds / chipsCollide1 | Casino Audio |
-| `pack/carrom-pocket.ogg` | Casino sounds / chipsStack2 | Casino Audio |
-| `pack/ludo-capture.ogg` | Casino sounds / chipLay2 | Casino Audio |
-| `pack/dice-roll-wood.ogg` | Casino sounds / dieShuffle2 | Casino Audio |
-| `pack/chess-capture.ogg` | RPG sounds / metalLatch | RPG Audio |
-| `pack/chess-piece-move.ogg` | RPG sounds / bookPlace2 | RPG Audio |
-| `pack/ladder-climb.ogg` | RPG sounds / footstep05 | RPG Audio |
-| `pack/snake-hit.ogg` | RPG sounds / creak2 | RPG Audio |
-| `pack/cricket-ball.ogg` | RPG sounds / metalPot2 | RPG Audio |
-| `pack/cricket-run1..6.ogg` | Digital sounds / tone1, pepSound1, laser1, powerUp1, lowDown, highUp | Digital Audio |
-| `pack/cricket-win.ogg` | Jingle sounds / jingles_HIT00 | Jingle Audio |
-| `pack/cricket-lose.ogg` | Digital sounds / zapThreeToneDown | Digital Audio |
-| `pack/cricket-defeat.ogg` | Digital sounds / phaserDown1 | Digital Audio |
-| `pack/cricket-whistle.ogg` | Digital sounds / phaserUp1 | Digital Audio |
-| `pack/victory-fanfare.ogg` | Jingle sounds / jingles_STEEL00 | Jingle Audio |
-| `pack/defeat-trombone.ogg` | Digital sounds / phaserDown2 | Digital Audio |
-| `pack/victory-applause` | maps to `realistic/crowd-win.ogg` (Google Sound Library) | — |
+| File in `pack/` | Original work | Creator | Source | License |
+|---|---|---|---|---|
+| `carrom-wood-strike.wav` | Cue Strike (`cue_hit.wav`) | Pouria-8118 / 8-Ball-Pool-Java contributors | https://github.com/Pouria-8118/8-Ball-Pool-Java/blob/main/sounds/cue_hit.wav | MIT (notice: `licenses/8-Ball-Pool-Java-MIT.txt`) |
+| `carrom-pocket.wav` | Pocket Drop (`pocket.wav`) | Pouria-8118 / 8-Ball-Pool-Java contributors | https://github.com/Pouria-8118/8-Ball-Pool-Java/blob/main/sounds/pocket.wav | MIT (notice: `licenses/8-Ball-Pool-Java-MIT.txt`) |
+| `carrom-rebound.ogg` | Wood Hit 01 (`sfx100v2_wood_hit_01.ogg`) | rubberduck | https://opengameart.org/content/100-cc0-sfx-2 | CC0 1.0 |
+| `chess-capture.mp3` | Forcefully knocking over chess piece, with roll FINAL.wav | mht23SD | https://freesound.org/people/mht23SD/sounds/707342/ | CC0 1.0 |
+| `chess-piece-move.mp3` | Chess Pieces hitting wooden board.wav | XfiXy8 | https://freesound.org/people/XfiXy8/sounds/467282/ | CC0 1.0 |
+| `ludo-capture.ogg` | Wood Hit 02 (`sfx100v2_wood_hit_02.ogg`) | rubberduck | https://opengameart.org/content/100-cc0-sfx-2 | CC0 1.0 |
+| `dice-roll-wood.mp3` | dice roll_wooden table_1.wav | ekfink | https://freesound.org/people/ekfink/sounds/235484/ | CC0 1.0 |
+| `ladder-climb.mp3` | Footsteps on Wooden Floor.aif | ftpalad | https://freesound.org/people/ftpalad/sounds/119914/ | CC0 1.0 |
+| `snake-hit.wav` | Snake Hiss (`snake.wav`) | kabaram / SnakesAndLadders contributors | https://github.com/kabaram/SnakesAndLadders/blob/master/snake.wav | MIT (notice: `licenses/SnakesAndLadders-MIT.txt`) |
+| `sneak-hit.mp3` | Punch #1.mp3 | lewisisminted | https://freesound.org/people/lewisisminted/sounds/162370/ | CC0 1.0 |
+| `cricket-ball.mp3` | Bat_hit2 (close bat strike) | hashtagsmcgee | https://freesound.org/s/851452/ | CC0 1.0 |
+| `cricket-one.mp3` | Bat_hit2 (single run, field perspective) | hashtagsmcgee | https://freesound.org/s/851452/ | CC0 1.0 |
+| `cricket-two.mp3` | Shouts and Applauses of Teens #1 (s0236) | Joseph Sardin (BigSoundBank) | https://bigsoundbank.com/sound-s0236.html | CC0 1.0 |
+| `cricket-three.mp3` | Shouts and Applauses of Teens #2 (s0237) | Joseph Sardin (BigSoundBank) | https://bigsoundbank.com/sound-s0237.html | CC0 1.0 |
+| `cricket-four.ogg` | Stadium Crowd Reaction Excited 01 | itmightgetloud | https://freesound.org/people/itmightgetloud/sounds/829453/ | CC0 1.0 |
+| `cricket-six.ogg` | Stadium Crowd Reaction Goal 01 | itmightgetloud | https://freesound.org/people/itmightgetloud/sounds/829455/ | CC0 1.0 |
+| `cricket-win.mp3` | Crowd Cheering | SoundsExciting | https://freesound.org/people/SoundsExciting/sounds/365132/ | CC0 1.0 |
+| `cricket-lose.ogg` | Soccer stadium Oehh.wav | Sandermotions | https://freesound.org/people/Sandermotions/sounds/494362/ | CC0 1.0 |
+| `cricket-defeat.mp3` | To_Be_Booed2_ses1.wav | freesound | https://freesound.org/people/freesound/sounds/25270/ | CC0 1.0 |
+| `cricket-whistle.mp3` | Plastic Whistle #1 (s1017) | Joseph Sardin (BigSoundBank) | https://bigsoundbank.com/sound-s1017.html | CC0 1.0 |
+| `victory-applause.mp3` | Applause 2.WAV | Sandermotions | https://freesound.org/people/Sandermotions/sounds/277021/ | CC0 1.0 |
+| `victory-fanfare.mp3` | -Hero_of_the_Winds-_Ta-Da_1.wav | -Hero_of_the_Winds- | https://freesound.org/people/-Hero_of_the_Winds-/sounds/127907/ | CC0 1.0 |
+| `defeat-trombone.mp3` | Fail.mp3 | LittleRainySeasons | https://freesound.org/people/LittleRainySeasons/sounds/335906/ | CC0 1.0 |
+
+MIT notice texts for the two MIT files are bundled unmodified in
+`public/sounds/licenses/` (`8-Ball-Pool-Java-MIT.txt`, `SnakesAndLadders-MIT.txt`,
+`Starter-Kit-Racing-MIT.txt`). Players can still replace ANY effect with their own
+recording in /sound-studio.

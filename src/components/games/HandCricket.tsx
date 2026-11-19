@@ -160,9 +160,10 @@ export default function HandCricket() {
   // ---------------------------- BALL RESOLUTION ----------------------------
   // Sounds fire exactly at reveal: bat crack on runs (crowd roar half a beat
   // later on 4s & 6s, like the ball reaching the rope), wicket rattle on OUT.
-  function ballSounds(runs: number, out: boolean) {
+  function ballSounds(runs: number, out: boolean, sneakyOut = false) {
     if (out) {
       sound.play("cricket_wicket");
+      if (sneakyOut) setTimeout(() => mounted.current && sound.play("sneak_hit"), 180); // 🕵️ the Sneaky brain matched your number
       setTimeout(() => mounted.current && sound.play("cricket_defeat"), 350);
       return;
     }
@@ -197,7 +198,7 @@ export default function HandCricket() {
     const out = you === ai;
     const balls = myBalls + 1;
     setMyBalls(balls);
-    ballSounds(you, out);
+    ballSounds(you, out, out && brain === "sneaky"); // Sneaky brain copied your favourite shot
     if (out) {
       const wkts = myWicketsLost + 1;
       setMyWicketsLost(wkts);
