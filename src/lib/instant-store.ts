@@ -18,6 +18,7 @@
 type Row = Record<string, any>;
 
 const INSTANT_URL =
+  process.env.INSTANT_BLOB_URL ||
   "https://jsonblob.com/api/jsonBlob/019f8072-780d-76f6-8026-6d5a1296a17b";
 
 const COLLECTIONS = [
@@ -29,6 +30,7 @@ const COLLECTIONS = [
   "roomInvites",
   "signals",
   "sounds",
+  "friends",
 ] as const;
 type Coll = (typeof COLLECTIONS)[number];
 type Doc = { seq: Record<string, number> } & Record<Coll, Row[]>;
@@ -42,6 +44,7 @@ const CAPS: Partial<Record<Coll, number>> = {
   roomInvites: 120,
   scores: 1500,
   sounds: 64,
+  friends: 200,
 };
 
 const iso = () => new Date().toISOString();
@@ -186,6 +189,10 @@ export const instantStore = {
       (await load()).players.find(
         (p) => p.name === name && p.secretAHash === hash,
       ) ?? null,
+    findByName: async (name: string): Promise<Row | null> =>
+      (await load()).players.find(
+        (p) => p.name.toLowerCase() === name.trim().toLowerCase(),
+      ) ?? null,
   },
   scores: {
     forPlayer: async (pid: number): Promise<Row[]> =>
@@ -296,6 +303,28 @@ export const instantStore = {
         .slice(-60),
     insert: async (v: Row): Promise<Row | null> =>
       transact(insertRow("signals", { toId: 0 }, v)),
+  },
+  friends: {
+    forPlayer: async (pid: number): Promise<Row[]> =>
+      (await load())
+        .friends.filter((f) => num(f.toId) === num(pid) || num(f.fromId) === num(pid))
+        .sort((a, b) => num(b.id) - num(a.id))
+        .slice(0, 50),
+    findDup: async (fromId: number, toId: number): Promise<Row | null> =>
+      (await load()).friends.find(
+        (f) =>
+          (num(f.fromId) === num(fromId) && num(f.toId) === num(toId)) ||
+          (num(f.fromId) === num(toId) && num(f.toId) === num(fromId)),
+      ) ?? null,
+    insert: async (v: Row): Promise<Row | null> =>
+      transact(insertRow("friends", { status: "pending" }, v)),
+    update: async (id: number, patch: Row): Promise<Row | null> =>
+      transact(updateRow("friends", id, patch)),
+    remove: async (id: number): Promise<Row[]> =>
+      transact((doc) => {
+        doc.friends = doc.friends.filter((f) => num(f.id) !== num(id));
+        return [];
+      }),
   },
   sounds: {
     get: async (name: string): Promise<Row | null> =>
