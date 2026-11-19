@@ -3,13 +3,17 @@
 import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import { sound } from "@/lib/sound";
+import { useSession } from "@/lib/session";
+import { isAdminName } from "@/lib/admin";
 
 export default function AudioControls() {
+  const { player } = useSession();
   const settings = useSyncExternalStore(
     (cb) => sound.subscribe(cb),
     () => sound.settings,
     () => ({ sfx: true, music: false, volume: 0.7, voice: true }),
   );
+  const admin = isAdminName(player?.name);
 
   return (
     <div className="fixed bottom-4 right-4 z-50 flex gap-2">
@@ -52,14 +56,16 @@ export default function AudioControls() {
       >
         {settings.voice ? "🎙️" : "🔇🎙️"}
       </button>
-      <Link
-        href="/sound-studio"
-        aria-label="Sound Studio — record or upload your own real sound effects"
-        title="🎛️ Sound Studio — replace any sound with your own recording"
-        className="grid h-11 w-11 place-items-center rounded-full border border-slate-700 bg-slate-900 text-lg text-slate-300 shadow-lg transition hover:bg-slate-800"
-      >
-        🎛️
-      </Link>
+      {admin && (
+        <Link
+          href="/sound-studio"
+          aria-label="Sound Studio (admin only) — record or upload real sound effects"
+          title="🎛️ Sound Studio (admin only) — replace any sound with your own recording"
+          className="grid h-11 w-11 place-items-center rounded-full border border-slate-700 bg-slate-900 text-lg text-slate-300 shadow-lg transition hover:bg-slate-800"
+        >
+          🎛️
+        </Link>
+      )}
     </div>
   );
 }

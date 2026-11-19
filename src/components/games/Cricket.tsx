@@ -453,17 +453,6 @@ export default function Cricket() {
           <div className="mt-3 text-[10px] text-slate-500 text-center">Realistic sounds: Bat hit, crowd cheer for 4/6, wicket, realistic music — All games</div>
         </div>
 
-        <div className="rounded-xl bg-slate-800/50 border border-slate-700 p-3">
-          <div className="text-xs font-bold">🔊 Realistic Cricket Sounds:</div>
-          <div className="mt-1 grid grid-cols-2 gap-1 text-[10px] text-slate-400">
-            <div>🏏 Bat Hit - Wooden strike</div>
-            <div>🎉 Four - Crowd cheer + applause</div>
-            <div>🎆 Six - Six! Massive! Crowd wild</div>
-            <div>💥 Wicket - Bowled, Caught, LBW</div>
-            <div>🎵 Background - Stadium crowd</div>
-            <div>📱 Team - 3,4,5,11 players</div>
-          </div>
-        </div>
       </div>
     );
   }
@@ -632,11 +621,6 @@ export default function Cricket() {
         >
           {isUserBatting ? `🏏 HIT! — ${currentBattingTeam.players[striker]?.name} Batting` : "Computer Batting..."}
         </button>
-        <div className="mt-2 grid grid-cols-3 gap-2 text-[10px]">
-          <button onClick={() => sound.play("click")} className="rounded bg-slate-700 py-1">Click 🔊</button>
-          <button onClick={() => sound.play("win")} className="rounded bg-slate-700 py-1">Four/Six 🎉</button>
-          <button onClick={() => sound.setMusic(!sound.settings.music)} className="rounded bg-violet-600 py-1 text-white">Music {sound.settings.music ? "On" : "Off"} 🎵</button>
-        </div>
       </div>
 
       {/* Scoreboard detailed */}

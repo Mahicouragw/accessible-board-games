@@ -92,24 +92,6 @@ export default function CarromWithPhone() {
       <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-2">
         <Carrom />
       </div>
-
-      <div className="rounded-xl bg-slate-800/50 border border-slate-700 p-3">
-        <div className="text-xs font-bold text-slate-300 mb-2">🔊 Realistic Sounds for Carrom + 4-Phone Multiplayer:</div>
-        <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400">
-          <div>🎯 Striker - Wooden flick + slide</div>
-          <div>💥 Pocket - Capture pop</div>
-          <div>📱 Phone Invite - SMS/WhatsApp</div>
-          <div>🔄 Colour Choose - Red/Green/Yellow/Blue</div>
-          <div>🎉 Win - Fanfare</div>
-          <div>👥 4 Players - Each phone picks colour, joins, switches</div>
-        </div>
-        <div className="mt-2 flex gap-2 flex-wrap">
-          <button onClick={() => sound.play("carrom_strike")} className="rounded-lg bg-slate-700 px-2 py-1 text-xs">Strike 🔊</button>
-          <button onClick={() => sound.play("pocket")} className="rounded-lg bg-slate-700 px-2 py-1 text-xs">Pocket 🔊</button>
-          <button onClick={() => sound.play("win")} className="rounded-lg bg-slate-700 px-2 py-1 text-xs">Win 🔊</button>
-          <button onClick={() => sound.setMusic(!sound.settings.music)} className="rounded-lg bg-violet-600 px-2 py-1 text-xs text-white">Music 🎵 {sound.settings.music ? "On" : "Off"}</button>
-        </div>
-      </div>
     </div>
   );
 }

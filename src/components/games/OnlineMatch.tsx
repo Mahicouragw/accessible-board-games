@@ -889,7 +889,8 @@ function ChessMiniBoard({
       announce(
         `${who} moved ${last.color === "w" ? "white" : "black"} ${pieceName} from ${last.from.toUpperCase()} to ${last.to.toUpperCase()}${cap}.`,
       );
-      sound.play(last.captured ? "capture" : "move");
+      // ChessMiniBoard is chess-only: real wood capture / piece-move recordings.
+      sound.play(last.captured ? "chess_capture" : "chess_piece_move");
       if (last.color !== myColor && aiOpponent && Math.random() < 0.45) {
         const line = AI_CHATTER[Math.floor(Math.random() * AI_CHATTER.length)];
         setTimeout(() => announce(line), 1000);

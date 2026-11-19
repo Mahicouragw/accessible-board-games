@@ -14,15 +14,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { sound } from "@/lib/sound";
+import type { Sfx } from "@/lib/sfx";
 import { announce } from "@/lib/a11y";
 import { useSaveScore } from "@/lib/useSaveScore";
 
-type Phase = "toss-choice" | "toss-play" | "bat-bowl-choice" | "batting" | "bowling" | "over";
+type Phase = "setup" | "toss-choice" | "toss-play" | "bat-bowl-choice" | "batting" | "bowling" | "over";
 type LogEntry = { n: number; you: number; ai: number; text: string; out: boolean };
-type Format = "wickets" | "overs12";
 type Brain = "chill" | "sneaky";
 
-const OVERS_LIMIT = 12;
+const OVER_OPTIONS = [2, 6, 10, 20] as const;   // overs per innings (default 6)
+const WICKET_OPTIONS = [1, 5, 10] as const;     // wickets per side (default 10)
 
 // Provably fair 1–6 using crypto randomness (no predictable Math.random).
 function fairPick(): number {
@@ -34,14 +35,14 @@ function fairPick(): number {
 export default function HandCricket() {
   const save = useSaveScore("hand-cricket");
 
-  const [format, setFormat] = useState<Format>("wickets");
+  const [overs, setOvers] = useState<2 | 6 | 10 | 20>(6); // ⏱️ 6 overs default
   const [brain, setBrain] = useState<Brain>("chill");
-  const [phase, setPhase] = useState<Phase>("toss-choice");
+  const [phase, setPhase] = useState<Phase>("setup");
   const [busy, setBusy] = useState(false);
   const [tossPick, setTossPick] = useState<"odd" | "even" | null>(null);
   const [aiBattingFirst, setAiBattingFirst] = useState(false);
 
-  const [wicketFormat, setWicketFormat] = useState<1 | 3 | 5>(1);
+  const [wicketFormat, setWicketFormat] = useState<1 | 5 | 10>(10); // 🏏 10 wickets default
   const [myWicketsLost, setMyWicketsLost] = useState(0);
   const [aiWicketsLost, setAiWicketsLost] = useState(0);
   const [myRuns, setMyRuns] = useState(0);
@@ -55,7 +56,7 @@ export default function HandCricket() {
   const [aiOut, setAiOut] = useState(false);
 
   const [target, setTarget] = useState<number | null>(null);
-  const [ballMsg, setBallMsg] = useState("Tap a number to play!");
+  const [ballMsg, setBallMsg] = useState("Choose overs and wickets, then tap Start match!");
   const [log, setLog] = useState<LogEntry[]>([]);
   const [winner, setWinner] = useState<"you" | "computer" | "draw" | null>(null);
   const [wins, setWins] = useState(0);
@@ -70,7 +71,7 @@ export default function HandCricket() {
   useEffect(() => {
     mounted.current = true;
     announce(
-      "Hand Cricket. Classic one-to-six hand cricket against the computer. Pick a match format and computer brain, then start with the toss. Every ball is announced, and real sounds play exactly with the action.",
+      "Hand Cricket. Set the overs — six overs by default — and the wickets — ten by default — choose the computer brain, then start the match with the toss. Every ball is announced, and real sounds play exactly with the action.",
     );
     return () => {
       mounted.current = false;
@@ -81,8 +82,8 @@ export default function HandCricket() {
   const pushLog = (entry: LogEntry) =>
     setLog((prev) => [{ ...entry, n: prev.length + 1 }, ...prev].slice(0, 25));
 
-  const limit = format === "overs12" ? OVERS_LIMIT : Infinity;
-  const ballCountText = (balls: number) => (format === "overs12" ? ` Ball ${balls} of ${OVERS_LIMIT}.` : "");
+  const limit = overs * 6; // balls per innings
+  const ballCountText = (balls: number) => ` Over ${Math.min(overs, Math.ceil(balls / 6))} of ${overs}.`;
 
   // Sneaky brain: studies the player's habits. Bowling → sometimes copies the
   // player's favourite recent shot to sneak a wicket. Batting → dodges the
@@ -126,7 +127,8 @@ export default function HandCricket() {
     const sum = n + ai;
     const winner = (sum % 2 === 0 ? "even" : "odd") === tossPick ? "you" : "computer";
     const won = winner === "you";
-    sound.play(won ? "level_up" : "turn"); // toss result sting in sync with reveal
+    sound.play("coin_drop"); // 🪙 coin lands
+    setTimeout(() => mounted.current && sound.play(won ? "level_up" : "turn"), 250); // toss result sting in sync with reveal
     const msg = `Toss: you played ${n}, computer played ${ai}. Sum ${sum} — ${sum % 2 === 0 ? "even" : "odd"}! ${won ? "You win the toss!" : "Computer wins the toss."} ${won ? "Choose batting or bowling." : "Computer is deciding…"}`;
     setBallMsg(msg);
     announce(msg);
@@ -161,9 +163,14 @@ export default function HandCricket() {
   function ballSounds(runs: number, out: boolean) {
     if (out) {
       sound.play("cricket_wicket");
+      setTimeout(() => mounted.current && sound.play("cricket_defeat"), 350);
       return;
     }
-    sound.play("cricket_bat");
+    sound.play("cricket_ball"); // 🏏 ball meets bat (real recording)
+    if (runs >= 1 && runs <= 6) {
+      const runSfx: Sfx = runs === 1 ? "cricket_run1" : runs === 2 ? "cricket_run2" : runs === 3 ? "cricket_run3" : runs === 4 ? "cricket_run4" : runs === 5 ? "cricket_run5" : "cricket_run6";
+      setTimeout(() => mounted.current && sound.play(runSfx), 120); // spoken run cue sound
+    }
     if (runs === 4 || runs === 6) {
       setTimeout(() => mounted.current && sound.play("cricket_boundary"), 380);
     }
@@ -224,7 +231,7 @@ export default function HandCricket() {
     if (target !== null && runs >= target) return finishMatch("you", `${runs} runs — target ${target} chased with ${balls} balls!`);
     // Overs format: 12-ball innings ends even when not out
     if (balls >= limit) {
-      const msg = `12 balls done — your innings closes on ${runs} runs ${out ? "" : "not out"}!`;
+      const msg = `${limit} balls done (${overs} overs) — your innings closes on ${runs} runs ${out ? "" : "not out"}!`;
       announce(msg);
       setBallMsg(`⌛ ${msg}`);
       endMyInnings(runs);
@@ -267,7 +274,7 @@ export default function HandCricket() {
     setBallMsg(`⚾ ${flavor} Computer: ${runs}${wicketTail}.${chase}`);
     if (target !== null && runs >= target) return finishMatch("computer", `computer chased ${target} in ${balls} balls`);
     if (balls >= limit) {
-      announce(`12 balls done — the computer's innings closes on ${runs} runs.`);
+      announce(`${limit} balls done (${overs} overs) — the computer's innings closes on ${runs} runs.`);
       return endAiInnings(runs);
     }
     setBusy(false);
@@ -314,17 +321,20 @@ export default function HandCricket() {
     setPhase("over");
     setBusy(false);
     if (result === "you") {
-      sound.play("win");
+      sound.play("cricket_win");
+      setTimeout(() => mounted.current && sound.play("victory_fanfare"), 500);
+      setTimeout(() => mounted.current && sound.play("victory_applause"), 1100);
       setWins((w) => w + 1);
       announce(`You WIN! ${detail} Well played! Tap Play again for a rematch.`);
       setBallMsg(`🏆 YOU WIN! ${detail}`);
     } else if (result === "computer") {
-      sound.play("lose");
+      sound.play("cricket_lose");
+      setTimeout(() => mounted.current && sound.play("defeat_trombone"), 500);
       setLosses((l) => l + 1);
       announce(`Computer wins — ${detail}. Better luck next time! Tap Play again for a rematch.`);
       setBallMsg(`😔 Computer wins — ${detail}.`);
     } else {
-      sound.play("turn");
+      sound.play("cricket_whistle");
       setDraws((d) => d + 1);
       announce(`Match tied — ${detail}. Tap Play again to break the tie!`);
       setBallMsg(`🤝 It's a tie — ${detail}.`);
@@ -332,13 +342,13 @@ export default function HandCricket() {
     // Record the player's innings (runs is the leaderboard metric)
     if (myRuns > 0 || myBalls > 0) {
       if (myRuns > best) setBest(myRuns);
-      save(myRuns, { balls: myBalls, fours: myFours, sixes: mySixes, result, format, brain, wickets: wicketFormat, wicketsLost: myWicketsLost });
+      save(myRuns, { balls: myBalls, fours: myFours, sixes: mySixes, result, overs, brain, wickets: wicketFormat, wicketsLost: myWicketsLost });
     }
   }
 
   function resetMatch() {
     sound.play("click");
-    setPhase("toss-choice");
+    setPhase("setup");
     setTossPick(null);
     setMyRuns(0); setMyBalls(0); setMyFours(0); setMySixes(0); setMyOut(false);
     setAiRuns(0); setAiBalls(0); setAiOut(false);
@@ -348,14 +358,16 @@ export default function HandCricket() {
     setLog([]);
     myShots.current = [];
     myBowls.current = [];
-    setBallMsg("New match! Choose odd or even for the toss.");
-    announce("New match. Choose odd or even for the toss.");
+    setBallMsg("Choose overs and wickets, then tap Start match!");
+    announce("New match. Choose overs and wickets, then start.");
   }
 
-  function pickFormat(f: Format) {
-    sound.play("select");
-    setFormat(f);
-    announce(f === "wickets" ? "Quick match: one wicket each. Bat until you're out!" : "Overs match: twelve balls per innings. You're out early only on a match!");
+  function startMatch() {
+    sound.play("cricket_whistle");
+    setPhase("toss-choice");
+    const msg = `Match set: ${overs} overs (${limit} balls), ${wicketFormat} wickets each. Choose odd or even for the toss!`;
+    setBallMsg(msg);
+    announce(msg);
   }
   function pickBrain(b: Brain) {
     sound.play("select");
@@ -375,7 +387,7 @@ export default function HandCricket() {
         {[1, 2, 3, 4, 5, 6].map((n) => (
           <button
             key={n}
-            disabled={busy || phase === "over" || phase === "toss-choice" || phase === "bat-bowl-choice"}
+            disabled={busy || phase === "over" || phase === "setup" || phase === "toss-choice" || phase === "bat-bowl-choice"}
             aria-label={phase === "toss-play" ? `Play ${n} for the toss` : phase === "bowling" ? `Bowl ${n}` : `Play ${n} runs`}
             onClick={() => (phase === "toss-play" ? playToss(n) : playBall(n))}
             className="min-h-16 rounded-2xl border-2 border-emerald-500/60 bg-emerald-600/20 text-3xl font-black text-emerald-200 transition hover:bg-emerald-600/40 focus:outline-none focus:ring-4 focus:ring-yellow-400 disabled:opacity-40"
@@ -394,45 +406,58 @@ export default function HandCricket() {
         Pick 1–6. If your number matches the computer&apos;s, the batter is OUT! Real sounds and TalkBack announce every ball.
       </p>
 
-      {/* Match setup */}
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <div role="group" aria-label="Match format" aria-disabled={phase !== "toss-choice"}>
-          <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">Match format</div>
-          <div className="flex gap-2">
-            <button disabled={phase !== "toss-choice"} aria-pressed={format === "wickets"} onClick={() => pickFormat("wickets")} className={pill(format === "wickets")}>⚡ Quick · 1 wicket</button>
-            <button disabled={phase !== "toss-choice"} aria-pressed={format === "overs12"} onClick={() => pickFormat("overs12")} className={pill(format === "overs12")}>⏱️ 12-ball overs</button>
+      {/* Match setup — pick OVERS (default 6) and WICKETS (default 10), then start */}
+      {phase === "setup" && (
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div role="group" aria-label="Overs per innings">
+            <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">⏱️ Overs (default 6)</div>
+            <div className="flex flex-wrap gap-2">
+              {OVER_OPTIONS.map((o) => (
+                <button key={o} aria-pressed={overs === o}
+                  onClick={() => { sound.play("select"); setOvers(o); announce(`${o} overs per innings — ${o * 6} balls.`); }}
+                  className={pill(overs === o)}>{o} overs</button>
+              ))}
+            </div>
+          </div>
+          <div role="group" aria-label="Wickets per side">
+            <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">🏏 Wickets (default 10)</div>
+            <div className="flex gap-2">
+              {WICKET_OPTIONS.map((wk) => (
+                <button key={wk} aria-pressed={wicketFormat === wk}
+                  onClick={() => { sound.play("select"); setWicketFormat(wk); announce(`${wk} wickets per side. ${wk === 1 ? "One out ends the innings!" : `${wk} outs to end an innings.`}`); }}
+                  className={pill(wicketFormat === wk)}>{wk}</button>
+              ))}
+            </div>
+          </div>
+          <div role="group" aria-label="Computer brain">
+            <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">Computer brain</div>
+            <div className="flex gap-2">
+              <button aria-pressed={brain === "chill"} onClick={() => pickBrain("chill")} className={pill(brain === "chill")}>😌 Chill</button>
+              <button aria-pressed={brain === "sneaky"} onClick={() => pickBrain("sneaky")} className={pill(brain === "sneaky")}>🧠 Sneaky</button>
+            </div>
+          </div>
+          <div className="sm:col-span-3">
+            <button
+              onClick={startMatch}
+              className="min-h-14 w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-lg font-black text-white focus:outline-none focus:ring-4 focus:ring-yellow-400"
+            >
+              ▶️ Start match — {overs} overs · {wicketFormat} wickets
+            </button>
           </div>
         </div>
-        <div role="group" aria-label="Wickets per side" aria-disabled={phase !== "toss-choice"}>
-          <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">Wickets</div>
-          <div className="flex gap-2">
-            {([1, 3, 5] as const).map((wk) => (
-              <button key={wk} disabled={phase !== "toss-choice"} aria-pressed={wicketFormat === wk}
-                onClick={() => { sound.play("select"); setWicketFormat(wk); announce(`${wk} wicket${wk > 1 ? "s" : ""} per side. ${wk === 1 ? "One out ends the innings!" : `${wk} outs to end an innings.`}`); }}
-                className={pill(wicketFormat === wk)}>🏏 {wk}</button>
-            ))}
-          </div>
-        </div>
-        <div role="group" aria-label="Computer brain" aria-disabled={phase !== "toss-choice"}>
-          <div className="mb-1 text-xs uppercase tracking-wide text-slate-400">Computer brain</div>
-          <div className="flex gap-2">
-            <button disabled={phase !== "toss-choice"} aria-pressed={brain === "chill"} onClick={() => pickBrain("chill")} className={pill(brain === "chill")}>😌 Chill</button>
-            <button disabled={phase !== "toss-choice"} aria-pressed={brain === "sneaky"} onClick={() => pickBrain("sneaky")} className={pill(brain === "sneaky")}>🧠 Sneaky</button>
-          </div>
-        </div>
-      </div>
+      )}
 
       {/* Scoreboard */}
       <div className="mt-4 grid grid-cols-2 gap-3 text-center" role="status" aria-label="Scoreboard">
         <div className="rounded-2xl bg-slate-800/70 p-3">
           <div className="text-xs uppercase text-slate-400">You {target !== null && aiBattingFirst ? "(chasing)" : ""}</div>
           <div className="text-2xl font-black text-white">{myRuns}</div>
-          <div className="text-xs text-slate-400">{myBalls}{format === "overs12" ? `/12` : ""} balls • {myWicketsLost}/{wicketFormat} wkts{myOut ? " • ALL OUT" : ""}</div>
+          <div className="text-xs text-slate-400">{myBalls}/{limit} balls • {myWicketsLost}/{wicketFormat} wkts{myOut ? " • ALL OUT" : ""}</div>
         </div>
         <div className="rounded-2xl bg-slate-800/70 p-3">
           <div className="text-xs uppercase text-slate-400">Computer</div>
           <div className="text-2xl font-black text-white">{aiRuns}</div>
-          <div className="text-xs text-slate-400">{aiBalls}{format === "overs12" ? `/12` : ""} balls • {aiWicketsLost}/{wicketFormat} wkts{aiOut ? " • ALL OUT" : ""}</div>
+          <div className="text-xs text-slate-400">{aiBalls}/{limit} balls • {aiWicketsLost}/{wicketFormat} wkts{aiOut ? " • ALL OUT" : ""}</div>
         </div>
       </div>
       {target !== null && (

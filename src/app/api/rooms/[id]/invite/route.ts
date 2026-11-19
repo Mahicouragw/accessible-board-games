@@ -8,13 +8,24 @@ export async function POST(
 ) {
   try {
     const roomId = Number(params.id);
-    const { code, opponentCode } = await req.json();
+    const { code, opponentCode, opponentName } = await req.json();
     const c = String(code ?? "").trim().toUpperCase();
     const oc = String(opponentCode ?? "").trim().toUpperCase();
+    const on = String(opponentName ?? "").trim().slice(0, 24);
 
     const me = await store.players.findByCode(c);
-    const opp = await store.players.findByCode(oc);
-    if (!me || !opp) return Response.json({ error: "player not found" }, { status: 404 });
+    if (!me) return Response.json({ error: "you must be registered" }, { status: 404 });
+    // Resolve the invitee by NAME (friends invite by name — IDs are login-only),
+    // falling back to an exact Player ID match.
+    let opp = oc ? await store.players.findByCode(oc) : null;
+    if (!opp && on) opp = await store.players.findByName(on);
+    if (!opp && on) opp = await store.players.findByCode(on.toUpperCase());
+    if (!opp) {
+      return Response.json(
+        { error: on ? `No player named "${on}" is registered yet.` : "player not found" },
+        { status: 404 },
+      );
+    }
 
     const room = await store.rooms.byId(roomId);
     if (!room) return Response.json({ error: "room not found" }, { status: 404 });

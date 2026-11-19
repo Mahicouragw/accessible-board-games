@@ -181,14 +181,6 @@ export default function Dashboard() {
 
             {/* Tools */}
             <section className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Link
-                href="/sound-studio"
-                className="rounded-2xl border border-slate-800 bg-slate-900 p-4 transition hover:border-sky-600"
-              >
-                <div className="text-2xl">🎛️</div>
-                <div className="mt-1 font-bold">Sound Studio</div>
-                <div className="text-xs text-slate-400">Record or upload your own real sound effects — published to every player</div>
-              </Link>
               <a
                 href="https://accessible-board-games.vercel.app"
                 target="_blank"

@@ -12,6 +12,7 @@ import { sound } from "@/lib/sound";
 import { announce } from "@/lib/a11y";
 import { LANGS, getLanguage, setLanguage, type Lang } from "@/lib/i18n";
 import { getAiLevel, setAiLevel, type AiLevel } from "@/lib/player-prefs";
+import { isAdminName } from "@/lib/admin";
 
 function Toggle({
   on,
@@ -113,12 +114,14 @@ export default function SettingsPanel() {
               className="mt-2 w-full accent-sky-500"
             />
           </label>
-          <Link
-            href="/sound-studio"
-            className="block rounded-2xl border border-sky-700/50 bg-sky-500/10 px-4 py-3 text-sm font-semibold text-sky-300 transition hover:bg-sky-500/20"
-          >
-            🎛️ Sound Studio — record/upload your own real sound effects
-          </Link>
+          {isAdminName(player?.name) && (
+            <Link
+              href="/sound-studio"
+              className="block rounded-2xl border border-sky-700/50 bg-sky-500/10 px-4 py-3 text-sm font-semibold text-sky-300 transition hover:bg-sky-500/20"
+            >
+              🎛️ Sound Studio (admin) — record/upload real sound effects for everyone
+            </Link>
+          )}
         </div>
       </section>
 

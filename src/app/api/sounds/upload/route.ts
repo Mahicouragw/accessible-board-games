@@ -1,13 +1,15 @@
 import { store } from "@/lib/cloud-store";
 import { SFX_NAMES } from "@/lib/sfx";
+import { isAdminName } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-// POST { name, dataUrl, mime }  → store a player's own RECORDED sound effect
-// (uploaded/recorded in /sound-studio). Published to every player via the
-// cloud database (Supabase bg_sounds table, instant cloud as fallback).
-// POST { name, reset: true }    → delete the override, back to built-in.
+// ADMIN-ONLY: POST { code, name, dataUrl } → store a real RECORDED sound effect
+// (recorded/uploaded in /sound-studio by the site owner). Published to every
+// player via the cloud database (Supabase bg_sounds table, instant cloud as
+// fallback). POST { code, name, reset: true } → back to built-in.
+// Player IDs are login-only; admin is decided by the owner's NAME.
 const MAX_BYTES = 6 * 1024 * 1024; // 6 MB cap per recording
 
 export async function POST(req: Request) {
@@ -20,6 +22,20 @@ export async function POST(req: Request) {
   const name = String(body?.name ?? "");
   if (!SFX_NAMES.includes(name as any)) {
     return Response.json({ ok: false, error: "unknown sound name" }, { status: 400 });
+  }
+  // Admin check: resolve the caller by login ID, then verify the NAME is an
+  // admin (owner) name. Guests and non-admin players cannot publish sounds.
+  const code = String(body?.code ?? "").trim().toUpperCase();
+  try {
+    const me = code ? await store.players.findByCode(code) : null;
+    if (!me || !isAdminName(me.name)) {
+      return Response.json(
+        { ok: false, error: "Sound Studio is admin-only — only the site owner can publish sounds." },
+        { status: 403 },
+      );
+    }
+  } catch {
+    return Response.json({ ok: false, error: "could not verify admin" }, { status: 503 });
   }
 
   try {

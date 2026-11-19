@@ -148,24 +148,6 @@ export default function LudoWithPhone() {
       <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-2">
         <Ludo humanColors={fourPlayers.length > 0 ? fourPlayers.filter(p => p.type === "human").map(p => p.color as any) : phonePlayers.length > 0 ? phonePlayers.map(p => p.color as any) : ["red"]} />
       </div>
-
-      <div className="rounded-xl bg-slate-800/50 border border-slate-700 p-3">
-        <div className="text-xs font-bold text-slate-300 mb-2">🔊 Realistic Sounds for Ludo:</div>
-        <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400">
-          <div>🎲 Dice Roll - Real shaking cup sound</div>
-          <div>🪵 Token Move - Wooden knock</div>
-          <div>💥 Capture - Pop + thud</div>
-          <div>🎉 Win - Fanfare brass</div>
-          <div>🎵 Background Music - Lo-fi loop</div>
-          <div>📱 Switch Player - Turn sound + haptic</div>
-        </div>
-        <div className="mt-2 flex gap-2">
-          <button onClick={() => sound.play("ludo_dice")} className="rounded-lg bg-slate-700 px-2 py-1 text-xs">Test Dice 🔊</button>
-          <button onClick={() => sound.play("ludo_token")} className="rounded-lg bg-slate-700 px-2 py-1 text-xs">Test Token 🔊</button>
-          <button onClick={() => sound.play("win")} className="rounded-lg bg-slate-700 px-2 py-1 text-xs">Test Win 🔊</button>
-          <button onClick={() => sound.setMusic(!sound.settings.music)} className="rounded-lg bg-violet-600 px-2 py-1 text-xs text-white">Toggle Music 🎵 {sound.settings.music ? "On" : "Off"}</button>
-        </div>
-      </div>
     </div>
   );
 }
