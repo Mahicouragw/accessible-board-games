@@ -11,11 +11,12 @@ import type { Sfx } from "@/lib/sfx";
 import { announce } from "@/lib/a11y";
 import { useSaveScore } from "@/lib/useSaveScore";
 
+// 4 pads, each with its own DISTINCT real recording from the Game Hall SFX pack.
 const PADS: { sfx: Sfx; label: string; color: string; active: string }[] = [
   { sfx: "cricket_ball", label: "Bat crack", color: "bg-emerald-600", active: "bg-emerald-300" },
-  { sfx: "coin_drop", label: "Coin", color: "bg-amber-600", active: "bg-amber-300" },
-  { sfx: "carrom_rebound", label: "Wood knock", color: "bg-sky-700", active: "bg-sky-300" },
-  { sfx: "cricket_whistle", label: "Whistle", color: "bg-rose-700", active: "bg-rose-300" },
+  { sfx: "cricket_whistle", label: "Whistle", color: "bg-amber-600", active: "bg-amber-300" },
+  { sfx: "dice_roll_wood", label: "Dice roll", color: "bg-sky-700", active: "bg-sky-300" },
+  { sfx: "chess_capture", label: "Piece crash", color: "bg-rose-700", active: "bg-rose-300" },
 ];
 
 const WIN_ROUND = 8;

@@ -248,7 +248,7 @@ export const instantStore = {
       (await load())
         .rooms.filter((r) => r.status !== "closed")
         .sort((a, b) => ts(b.updatedAt) - ts(a.updatedAt))
-        .slice(0, 30),
+        .slice(0, 100),
     insert: async (v: Row): Promise<Row | null> =>
       transact(insertRow("rooms", { status: "open", members: [], updatedAt: iso() }, v)),
     update: async (id: number, patch: Row): Promise<Row | null> =>

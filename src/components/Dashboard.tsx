@@ -17,13 +17,14 @@ function level(xp: number) {
   return Math.floor(xp / 100) + 1;
 }
 
-type Tab = "home" | "games" | "multiplayer" | "local" | "rooms" | "notifications" | "settings";
+type Tab = "home" | "games" | "multiplayer" | "local" | "ai" | "rooms" | "notifications" | "settings";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "home", label: "Home", icon: "🏠" },
   { id: "games", label: "Games", icon: "🎮" },
   { id: "multiplayer", label: "Multiplayer", icon: "🌐" },
   { id: "local", label: "Local Multi", icon: "👥" },
+  { id: "ai", label: "Vs AI", icon: "🤖" },
   { id: "rooms", label: "Rooms", icon: "🚪" },
   { id: "notifications", label: "Notifications", icon: "🔔" },
   { id: "settings", label: "Settings", icon: "⚙️" },
@@ -220,6 +221,31 @@ export default function Dashboard() {
 
         {tab === "multiplayer" && <MultiplayerPanel />}
         {tab === "local" && <LocalMultiPanel />}
+        {tab === "ai" && (
+          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
+            <h2 className="text-xl font-bold">🤖 Play vs the AI — every game</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Every game in the arcade has a built-in computer opponent — Memory Match, Hand Cricket, Chess,
+              Snake &amp; Ladder, Carrom, Ludo and more. Open a game and choose “🤖 Play vs AI”. Works fully offline,
+              and every move is announced out loud with real sounds.
+            </p>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {GAMES.map((g) => (
+                <Link
+                  key={g.id}
+                  href={`/play/${g.id}`}
+                  className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-800/50 p-4 transition hover:border-violet-500"
+                >
+                  <span className="text-3xl">{g.emoji}</span>
+                  <div>
+                    <div className="font-bold">{g.name}</div>
+                    <div className="text-xs text-violet-300">🤖 vs AI available</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
         {tab === "rooms" && <RoomsBrowser />}
         {tab === "notifications" && <NotificationsPanel />}
         {tab === "settings" && <SettingsPanel />}

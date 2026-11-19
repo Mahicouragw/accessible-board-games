@@ -131,6 +131,7 @@ function PlayPageInner({ params }: { params: { game: string } }) {
           {game === "chess" && <OnlineMatch game="chess" initialMatchId={initialMatchId} />}
           {game === "rock-paper-scissors" && <RockPaperScissors />}
           {game === "memory" && <Memory />}
+          {game === "sound-memory" && <Memory forceMode="sounds" />}
           {game === "2048" && <Game2048 />}
           {game === "snake" && <Snake />}
           {game === "ludo" && <LudoWithPhone />}

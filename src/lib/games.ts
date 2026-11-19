@@ -19,6 +19,7 @@ export type GameId =
   | "tetris"
   | "basketball"
   | "monster-battle"
+  | "sound-memory"
   | "dice-race"
   | "sound-simon"
   | "reaction-rush";
@@ -58,7 +59,7 @@ export const GAMES: GameInfo[] = [
     emoji: "✊",
     tagline: "Best of luck vs the AI. Enhanced: Lizard Spock variant, best of 5",
     color: "from-amber-500 to-orange-600",
-    online: false,
+    online: true,
     scoreLabel: "Best streak",
   },
   {
@@ -67,7 +68,7 @@ export const GAMES: GameInfo[] = [
     emoji: "🧠",
     tagline: "Flip and match all the pairs. Enhanced: 6x6, themes, timer, advanced",
     color: "from-emerald-500 to-teal-600",
-    online: false,
+    online: true,
     scoreLabel: "Best score",
   },
   {
@@ -76,7 +77,7 @@ export const GAMES: GameInfo[] = [
     emoji: "🔢",
     tagline: "Merge tiles to reach 2048. Enhanced: 5x5, 6x6, undo, advanced",
     color: "from-violet-500 to-purple-600",
-    online: false,
+    online: true,
     scoreLabel: "High score",
   },
   {
@@ -85,7 +86,7 @@ export const GAMES: GameInfo[] = [
     emoji: "🐍",
     tagline: "Eat, grow, don't crash. Enhanced: Obstacles, levels, power-ups, advanced",
     color: "from-lime-500 to-green-600",
-    online: false,
+    online: true,
     scoreLabel: "High score",
   },
   {
@@ -94,7 +95,7 @@ export const GAMES: GameInfo[] = [
     emoji: "🎲",
     tagline: "Classic 4-player Ludo vs AI. Enhanced: 4 phones, 4 colours, invite, match request, realistic sounds",
     color: "from-red-500 to-yellow-500",
-    online: false,
+    online: true,
     scoreLabel: "Wins",
   },
   {
@@ -103,7 +104,7 @@ export const GAMES: GameInfo[] = [
     emoji: "🪜",
     tagline: "Climb ladders, dodge snakes. Enhanced: 4 phones, colours, invite, 3D board",
     color: "from-green-500 to-emerald-600",
-    online: false,
+    online: true,
     scoreLabel: "Wins",
   },
   {
@@ -112,7 +113,7 @@ export const GAMES: GameInfo[] = [
     emoji: "⚫",
     tagline: "Flick the striker and pot the coins vs AI. Enhanced: 4-player, phone invite, realistic physics",
     color: "from-amber-600 to-yellow-700",
-    online: false,
+    online: true,
     scoreLabel: "Best pot",
   },
   {
@@ -130,7 +131,7 @@ export const GAMES: GameInfo[] = [
     emoji: "🏏",
     tagline: "Team vs Team! 3,4,5,11 players, 5-50 overs, score 345 vs 45, 50/3. Player vs Computer!",
     color: "from-emerald-600 to-green-700",
-    online: false,
+    online: true,
     scoreLabel: "Highest Score",
   },
   {
@@ -139,7 +140,7 @@ export const GAMES: GameInfo[] = [
     emoji: "⚾",
     tagline: "Classic 1–6 hand cricket vs the computer! Match = OUT. Toss, bat, bowl & chase — every ball announced, sounds in sync.",
     color: "from-lime-600 to-emerald-700",
-    online: false,
+    online: true,
     scoreLabel: "Best Innings",
   },
   {
@@ -148,7 +149,7 @@ export const GAMES: GameInfo[] = [
     emoji: "♟️",
     tagline: "Draughts vs the computer — forced captures, multi-jumps, king crowning. You are red.",
     color: "from-amber-700 to-red-700",
-    online: false,
+    online: true,
     scoreLabel: "Wins",
   },
   {
@@ -157,7 +158,7 @@ export const GAMES: GameInfo[] = [
     emoji: "🀄",
     tagline: "Dominoes vs the computer — match an end, draw from the boneyard or pass, empty your hand to win.",
     color: "from-slate-600 to-slate-800",
-    online: false,
+    online: true,
     scoreLabel: "Score",
   },
   {
@@ -166,7 +167,7 @@ export const GAMES: GameInfo[] = [
     emoji: "🔢",
     tagline: "9x9 Hard Sudoku - Advanced: Row/col highlight, error tracking, realistic number sound",
     color: "from-violet-600 to-indigo-700",
-    online: false,
+    online: true,
     scoreLabel: "Wins",
   },
   {
@@ -175,7 +176,7 @@ export const GAMES: GameInfo[] = [
     emoji: "💣",
     tagline: "10x10, 15 mines - Advanced: Flood reveal, flag, realistic click sounds",
     color: "from-amber-600 to-orange-700",
-    online: false,
+    online: true,
     scoreLabel: "Wins",
   },
   {
@@ -184,7 +185,7 @@ export const GAMES: GameInfo[] = [
     emoji: "⚽",
     tagline: "Penalty shootout - Advanced: Power + Angle, keeper AI, crowd cheer sounds, team vs team",
     color: "from-emerald-600 to-green-800",
-    online: false,
+    online: true,
     scoreLabel: "Goals",
   },
   {
@@ -193,7 +194,7 @@ export const GAMES: GameInfo[] = [
     emoji: "🧱",
     tagline: "Stack and clear lines - Advanced: 7 tetrominoes, line clear, level-up sound",
     color: "from-violet-600 to-purple-700",
-    online: false,
+    online: true,
     scoreLabel: "High Score",
   },
   {
@@ -202,8 +203,17 @@ export const GAMES: GameInfo[] = [
     emoji: "🏀",
     tagline: "Power + Angle shooting - Advanced: Realistic bounce sound, streak, team vs team 3-4-5 players",
     color: "from-orange-500 to-red-600",
-    online: false,
+    online: true,
     scoreLabel: "Goals",
+  },
+  {
+    id: "sound-memory",
+    name: "Sound Memory",
+    emoji: "🔊",
+    tagline: "Memory match played entirely by EAR — flip cards to hear real sounds and match identical ones. vs AI too!",
+    color: "from-fuchsia-500 to-purple-600",
+    online: false,
+    scoreLabel: "Best score",
   },
   {
     id: "dice-race",
@@ -211,7 +221,7 @@ export const GAMES: GameInfo[] = [
     emoji: "🏁",
     tagline: "Roll the dice, race from 1 to 100 — ladders boost, snakes slip! vs AI or 2 players on one device. Real dice sounds.",
     color: "from-amber-500 to-orange-600",
-    online: false,
+    online: true,
     scoreLabel: "Best race score",
   },
   {
@@ -220,7 +230,7 @@ export const GAMES: GameInfo[] = [
     emoji: "🔊",
     tagline: "Listen to the sound sequence and repeat it — playable entirely by ear! 4 sound pads, 8 rounds to win.",
     color: "from-violet-500 to-fuchsia-600",
-    online: false,
+    online: true,
     scoreLabel: "Best round",
   },
   {
@@ -229,7 +239,7 @@ export const GAMES: GameInfo[] = [
     emoji: "⚡",
     tagline: "Wait for the whistle, tap as fast as you can! 5 rounds, average reaction time vs the computer.",
     color: "from-sky-500 to-blue-700",
-    online: false,
+    online: true,
     scoreLabel: "Best avg (ms)",
   },
   {
@@ -238,7 +248,7 @@ export const GAMES: GameInfo[] = [
     emoji: "⚔️",
     tagline: "1-6 monsters: Goblin 10 dmg hits back 10, Goblin Mage, Arch Magician! Light 30/40 dmg, MP 3+, spell fail 15%, multiple strikes!",
     color: "from-red-600 to-orange-700",
-    online: false,
+    online: true,
     scoreLabel: "Wins",
   },
 ];

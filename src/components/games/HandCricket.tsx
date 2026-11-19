@@ -185,7 +185,9 @@ export default function HandCricket() {
     sound.play("cricket_ball"); // 🏏 ball meets bat (0.6 s)
     if (runs >= 1 && runs <= 6) {
       const runSfx: Sfx = runs === 1 ? "cricket_run1" : runs === 2 ? "cricket_run2" : runs === 3 ? "cricket_run3" : runs === 4 ? "cricket_run4" : runs === 5 ? "cricket_run5" : "cricket_run6";
-      setTimeout(() => mounted.current && sound.play(runSfx), 120); // run cue / crowd clap on 4 & 6
+      // 4 & 6 play the crowd clap but are CUT at 2 s (owner rule: max 2 seconds in play)
+      const cap = runs === 4 || runs === 6 ? 2000 : undefined;
+      setTimeout(() => mounted.current && sound.play(runSfx, cap), 120);
     }
   }
 
@@ -202,7 +204,7 @@ export default function HandCricket() {
   function playMilestone(prev: number, next: number, team: string) {
     const msg = milestone(prev, next, team);
     if (msg) {
-      setTimeout(() => mounted.current && sound.play("victory_applause"), 250); // 👏 claps
+      setTimeout(() => mounted.current && sound.play("victory_applause", 2000), 250); // 👏 claps, cut at 2 s
       setTimeout(() => mounted.current && announce(msg), 300);
       pushLog({ n: 0, you: 0, ai: 0, text: msg, out: false });
     }
