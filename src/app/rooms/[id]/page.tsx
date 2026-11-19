@@ -53,6 +53,8 @@ function RoomPageInner({ params }: { params: { id: string } }) {
   const [inviteName, setInviteName] = useState("");
   const [inviteMsg, setInviteMsg] = useState("");
   const [notFound, setNotFound] = useState(false);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Hub/world gesture context for the room screen (suspended while in a game).
   useHubGestureContext();
@@ -142,6 +144,20 @@ function RoomPageInner({ params }: { params: { id: string } }) {
         /* ignore */
       }
     }
+    // The room itself stays open for others — only the owner can delete it.
+    router.push("/");
+  }, [player, roomId, router]);
+
+  // 🗑️ Only the room OWNER can delete the room (it persists until then).
+  const deleteRoom = useCallback(async () => {
+    if (!player?.code) return;
+    try {
+      await fetch(`/api/rooms?id=${roomId}&code=${encodeURIComponent(player.code)}`, {
+        method: "DELETE",
+      });
+    } catch {
+      /* ignore */
+    }
     router.push("/");
   }, [player, roomId, router]);
 
@@ -220,15 +236,62 @@ function RoomPageInner({ params }: { params: { id: string } }) {
   return (
     <main className="mx-auto max-w-6xl px-4 py-6">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <button
-          onClick={leave}
-          className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-slate-800"
-        >
-          ← Leave Room
-        </button>
+        <div className="flex items-center gap-2">
+          {confirmLeave ? (
+            <div className="flex items-center gap-2 rounded-xl border border-amber-600/50 bg-amber-900/30 px-3 py-2" role="alertdialog" aria-label="Confirm leaving the room">
+              <span className="text-sm font-semibold text-amber-200">Do you want to exit this room?</span>
+              <button
+                onClick={() => { setConfirmLeave(false); leave(); }}
+                className="rounded-lg bg-rose-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-400"
+              >
+                Yes
+              </button>
+              <button
+                onClick={() => setConfirmLeave(false)}
+                className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-600"
+              >
+                No
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmLeave(true)}
+              className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-slate-800"
+            >
+              ← Leave Room
+            </button>
+          )}
+          {player?.id === room?.hostId && room?.game !== "chat" && (
+            confirmDelete ? (
+              <div className="flex items-center gap-2 rounded-xl border border-rose-600/50 bg-rose-900/30 px-3 py-2" role="alertdialog" aria-label="Confirm deleting the room">
+                <span className="text-sm font-semibold text-rose-200">Delete this room for everyone?</span>
+                <button
+                  onClick={() => { setConfirmDelete(false); deleteRoom(); }}
+                  className="rounded-lg bg-rose-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-400"
+                >
+                  Yes, delete
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-bold text-slate-200 hover:bg-slate-600"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="rounded-xl border border-rose-800 bg-rose-950/40 px-3 py-2 text-xs font-bold text-rose-300 transition hover:bg-rose-900/50"
+                title="Only the owner can delete the room"
+              >
+                🗑️ Delete room
+              </button>
+            )
+          )}
+        </div>
         <h1 className="flex items-center gap-2 text-xl font-bold">
-          <span className="text-2xl">{info?.emoji}</span>
-          {info?.name} Room
+          <span className="text-2xl">{room?.game === "chat" ? "💬" : info?.emoji}</span>
+          {room?.game === "chat" ? "Private chat" : `${room?.hostName ?? "Host"}'s ${info?.name ?? ""} Room`}
         </h1>
         <span className="rounded-lg bg-slate-800 px-3 py-1.5 font-mono text-sm text-emerald-400">
           Code: {room?.code ?? "----"}
@@ -240,7 +303,7 @@ function RoomPageInner({ params }: { params: { id: string } }) {
           {/* Participants */}
           <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold">👥 Players ({playersList.length}/4)</h2>
+              <h2 className="text-lg font-bold">👥 Members ({members.length}/24 · {playersList.length} players)</h2>
               {role === "spectator" && (
                 <span className="rounded-full bg-violet-500/15 px-3 py-1 text-xs font-semibold text-violet-300">
                   You&apos;re spectating 👀
@@ -248,19 +311,27 @@ function RoomPageInner({ params }: { params: { id: string } }) {
               )}
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {playersList.map((m) => (
+              {members.map((m) => {
+                const isOnline = online.some((o) => o.id === m.id);
+                return (
                 <div key={m.id} className="rounded-2xl bg-slate-800/60 p-3 text-center">
-                  <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br from-sky-500 to-violet-600 text-2xl">
+                  <div className="relative mx-auto grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br from-sky-500 to-violet-600 text-2xl">
                     {m.avatar}
+                    <span
+                      className={`absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-slate-900 ${isOnline ? "bg-emerald-400" : "bg-slate-500"}`}
+                      title={isOnline ? "online" : "offline"}
+                    />
                   </div>
                   <div className="mt-2 truncate text-sm font-semibold">
                     {m.name}
                     {m.id === room?.hostId && " 👑"}
                     {m.id === player?.id && " (You)"}
+                    {m.role === "spectator" && " 👀"}
                   </div>
                 </div>
-              ))}
-              {Array.from({ length: Math.max(0, 4 - playersList.length) }).map((_, i) => (
+                );
+              })}
+              {Array.from({ length: Math.max(0, Math.min(4, 24 - members.length)) }).map((_, i) => (
                 <div
                   key={`empty-${i}`}
                   className="grid place-items-center rounded-2xl border-2 border-dashed border-slate-700 p-3 text-xs text-slate-600"
@@ -282,7 +353,7 @@ function RoomPageInner({ params }: { params: { id: string } }) {
           </section>
 
           {/* Teams & captains (host sets countries/captains; captains pick striker/bowler) */}
-          {room && (
+          {room && room.game !== "chat" && (
             <TeamSetup
               roomId={roomId}
               hostId={room.hostId}
@@ -313,7 +384,7 @@ function RoomPageInner({ params }: { params: { id: string } }) {
           <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
             <h2 className="text-lg font-bold">➕ Invite Players</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Invite by the player&apos;s NAME (up to 4 players, unlimited spectators) — IDs are only for logging in.
+              Invite by the player&apos;s NAME (up to 24 members incl. spectators) — IDs are only for logging in.
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <input

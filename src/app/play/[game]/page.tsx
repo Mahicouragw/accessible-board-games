@@ -28,7 +28,11 @@ import FootballPenalty from "@/components/games/FootballPenalty";
 import Tetris from "@/components/games/Tetris";
 import Basketball from "@/components/games/Basketball";
 import MonsterBattle from "@/components/games/MonsterBattle";
+import DiceRace from "@/components/games/DiceRace";
+import SoundSimon from "@/components/games/SoundSimon";
+import ReactionRush from "@/components/games/ReactionRush";
 import Leaderboard from "@/components/Leaderboard";
+import QuickA11y from "@/components/QuickA11y";
 
 export default function PlayPage({ params }: { params: { game: string } }) {
   return (
@@ -142,8 +146,12 @@ function PlayPageInner({ params }: { params: { game: string } }) {
           {game === "tetris" && <Tetris />}
           {game === "basketball" && <Basketball />}
           {game === "monster-battle" && <MonsterBattle />}
+          {game === "dice-race" && <DiceRace />}
+          {game === "sound-simon" && <SoundSimon />}
+          {game === "reaction-rush" && <ReactionRush />}
         </div>
         <aside className="space-y-4">
+          <QuickA11y compact />
           {!info.online && <Leaderboard game={game} label={info.scoreLabel} />}
           <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
             <h3 className="text-lg font-bold">Your Stats</h3>

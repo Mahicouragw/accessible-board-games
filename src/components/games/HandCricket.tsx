@@ -17,6 +17,7 @@ import { sound } from "@/lib/sound";
 import type { Sfx } from "@/lib/sfx";
 import { announce } from "@/lib/a11y";
 import { useSaveScore } from "@/lib/useSaveScore";
+import { useSession } from "@/lib/session";
 
 type Phase = "setup" | "toss-choice" | "toss-play" | "bat-bowl-choice" | "batting" | "bowling" | "over";
 type LogEntry = { n: number; you: number; ai: number; text: string; out: boolean };
@@ -32,8 +33,12 @@ function fairPick(): number {
   return (arr[0] % 6) + 1;
 }
 
+const AI_TEAMS = ["India", "Australia", "England", "Titans", "Warriors", "Strikers", "Challengers"];
+const AI_CAPTAINS = ["Virat", "Dhoni", "Rohit", "Smriti", "Harman", "Ellyse"];
+
 export default function HandCricket() {
   const save = useSaveScore("hand-cricket");
+  const { player } = useSession();
 
   const [overs, setOvers] = useState<2 | 6 | 10 | 20>(6); // ⏱️ 6 overs default
   const [brain, setBrain] = useState<Brain>("chill");
@@ -59,6 +64,11 @@ export default function HandCricket() {
   const [ballMsg, setBallMsg] = useState("Choose overs and wickets, then tap Start match!");
   const [log, setLog] = useState<LogEntry[]>([]);
   const [winner, setWinner] = useState<"you" | "computer" | "draw" | null>(null);
+  // 🏏 Team vs Team: each side has a team name + a captain.
+  const [myTeam, setMyTeam] = useState("My Team");
+  const [myCaptain, setMyCaptain] = useState("");
+  const [aiTeam, setAiTeam] = useState("Titans");
+  const [aiCaptain, setAiCaptain] = useState("Dhoni");
   const [wins, setWins] = useState(0);
   const [losses, setLosses] = useState(0);
   const [draws, setDraws] = useState(0);
@@ -67,6 +77,10 @@ export default function HandCricket() {
   // Habit trackers for the Sneaky brain (your recent shots / bowls).
   const myShots = useRef<number[]>([]);
   const myBowls = useRef<number[]>([]);
+
+  useEffect(() => {
+    if (player?.name) setMyCaptain((c) => c || player.name);
+  }, [player?.name]);
 
   useEffect(() => {
     mounted.current = true;
@@ -158,22 +172,39 @@ export default function HandCricket() {
   }
 
   // ---------------------------- BALL RESOLUTION ----------------------------
-  // Sounds fire exactly at reveal: bat crack on runs (crowd roar half a beat
-  // later on 4s & 6s, like the ball reaching the rope), wicket rattle on OUT.
+  // Sounds fire exactly at reveal: bat crack on runs, crowd cheer on 4s & 6s
+  // (the FOUR/SIX claps are kept long on purpose), stumps crash on OUT.
+  // Rule: every hand-cricket SFX is ≤2 s EXCEPT the 4/6 claps and the win tune.
   function ballSounds(runs: number, out: boolean, sneakyOut = false) {
     if (out) {
-      sound.play("cricket_wicket");
+      sound.play("carrom_wood_strike"); // 🪵 distinct stumps-crash wicket sound (0.3 s)
       if (sneakyOut) setTimeout(() => mounted.current && sound.play("sneak_hit"), 180); // 🕵️ the Sneaky brain matched your number
-      setTimeout(() => mounted.current && sound.play("cricket_defeat"), 350);
+      setTimeout(() => mounted.current && sound.play("cricket_defeat"), 320); // crowd boo (1.7 s)
       return;
     }
-    sound.play("cricket_ball"); // 🏏 ball meets bat (real recording)
+    sound.play("cricket_ball"); // 🏏 ball meets bat (0.6 s)
     if (runs >= 1 && runs <= 6) {
       const runSfx: Sfx = runs === 1 ? "cricket_run1" : runs === 2 ? "cricket_run2" : runs === 3 ? "cricket_run3" : runs === 4 ? "cricket_run4" : runs === 5 ? "cricket_run5" : "cricket_run6";
-      setTimeout(() => mounted.current && sound.play(runSfx), 120); // spoken run cue sound
+      setTimeout(() => mounted.current && sound.play(runSfx), 120); // run cue / crowd clap on 4 & 6
     }
-    if (runs === 4 || runs === 6) {
-      setTimeout(() => mounted.current && sound.play("cricket_boundary"), 380);
+  }
+
+  // 🏆 Milestones — crowd claps at every 50 (half-century, century, 200…).
+  function milestone(prev: number, next: number, team: string): string | null {
+    for (const m of [50, 100, 150, 200, 250, 300]) {
+      if (prev < m && next >= m) {
+        const word = m === 50 ? "HALF-CENTURY" : m === 100 ? "CENTURY" : `${m}!`;
+        return `🎉 ${team} reach ${m} — ${word}! The crowd claps!`;
+      }
+    }
+    return null;
+  }
+  function playMilestone(prev: number, next: number, team: string) {
+    const msg = milestone(prev, next, team);
+    if (msg) {
+      setTimeout(() => mounted.current && sound.play("victory_applause"), 250); // 👏 claps
+      setTimeout(() => mounted.current && announce(msg), 300);
+      pushLog({ n: 0, you: 0, ai: 0, text: msg, out: false });
     }
   }
 
@@ -219,6 +250,7 @@ export default function HandCricket() {
     }
     const runs = myRuns + you;
     setMyRuns(runs);
+    playMilestone(myRuns, runs, myTeam); // 🏆 50 / 100 / 200… claps for MY team
     if (you === 4) setMyFours((f) => f + 1);
     if (you === 6) setMySixes((s) => s + 1);
     const flavor = you === 6 ? "MASSIVE SIX! 🎉" : you === 4 ? "FOUR! Cracking shot! 🎉" : `${you} run${you > 1 ? "s" : ""}.`;
@@ -266,6 +298,7 @@ export default function HandCricket() {
     ballSounds(ai, false);
     const runs = aiRuns + ai;
     setAiRuns(runs);
+    playMilestone(aiRuns, runs, aiTeam); // 🏆 milestone claps for the computer team
     const flavor = ai === 6 ? "Computer smashes a SIX! 😬" : ai === 4 ? "Computer finds a FOUR." : `Computer takes ${ai}.`;
     const chase = target !== null ? ` Computer needs ${Math.max(0, target - runs)} more.` : "";
     const wicketTail = wicketFormat > 1 ? ` (${aiWicketsLost} wicket${aiWicketsLost === 1 ? "" : "s"} down)` : "";
@@ -329,8 +362,8 @@ export default function HandCricket() {
       announce(`You WIN! ${detail} Well played! Tap Play again for a rematch.`);
       setBallMsg(`🏆 YOU WIN! ${detail}`);
     } else if (result === "computer") {
-      sound.play("cricket_lose");
-      setTimeout(() => mounted.current && sound.play("defeat_trombone"), 500);
+      sound.play("lose"); // short sad sting (<=2 s rule; long trombone removed)
+      setTimeout(() => mounted.current && sound.play("cricket_defeat"), 400);
       setLosses((l) => l + 1);
       announce(`Computer wins — ${detail}. Better luck next time! Tap Play again for a rematch.`);
       setBallMsg(`😔 Computer wins — ${detail}.`);
@@ -365,8 +398,16 @@ export default function HandCricket() {
 
   function startMatch() {
     sound.play("cricket_whistle");
+    const team = AI_TEAMS[fairPick() - 1];
+    const capt = AI_CAPTAINS[fairPick() - 1];
+    setAiTeam(team);
+    setAiCaptain(capt);
+    const myT = myTeam.trim() || "My Team";
+    const myC = myCaptain.trim() || player?.name || "You";
+    setMyTeam(myT);
+    setMyCaptain(myC);
     setPhase("toss-choice");
-    const msg = `Match set: ${overs} overs (${limit} balls), ${wicketFormat} wickets each. Choose odd or even for the toss!`;
+    const msg = `🏏 MATCH START! ${myT} (captain ${myC}) vs ${team} (captain ${capt}). ${overs} overs, ${wicketFormat} wickets each. Toss: choose odd or even!`;
     setBallMsg(msg);
     announce(msg);
   }
@@ -402,7 +443,7 @@ export default function HandCricket() {
 
   return (
     <section className="rounded-3xl border border-slate-800 bg-slate-900 p-6" aria-label="Hand Cricket">
-      <h2 className="text-xl font-bold text-emerald-300">🏏 Hand Cricket — You vs Computer</h2>
+      <h2 className="text-xl font-bold text-emerald-300">🏏 Hand Cricket — Team vs Team</h2>
       <p className="mt-1 text-sm text-slate-400">
         Pick 1–6. If your number matches the computer&apos;s, the batter is OUT! Real sounds and TalkBack announce every ball.
       </p>
@@ -437,6 +478,18 @@ export default function HandCricket() {
               <button aria-pressed={brain === "sneaky"} onClick={() => pickBrain("sneaky")} className={pill(brain === "sneaky")}>🧠 Sneaky</button>
             </div>
           </div>
+          <div role="group" aria-label="Your team and captain" className="sm:col-span-3 grid gap-2 sm:grid-cols-2">
+            <label className="block text-xs uppercase tracking-wide text-slate-400">🏏 Your team name
+              <input value={myTeam} onChange={(e) => setMyTeam(e.target.value)} maxLength={16}
+                aria-label="Your team name"
+                className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm normal-case tracking-normal text-white outline-none focus:border-emerald-500" />
+            </label>
+            <label className="block text-xs uppercase tracking-wide text-slate-400">👑 Your captain
+              <input value={myCaptain} onChange={(e) => setMyCaptain(e.target.value)} maxLength={16} placeholder={player?.name ?? "Captain name"}
+                aria-label="Your team captain name"
+                className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-sm normal-case tracking-normal text-white outline-none focus:border-emerald-500" />
+            </label>
+          </div>
           <div className="sm:col-span-3">
             <button
               onClick={startMatch}
@@ -451,12 +504,12 @@ export default function HandCricket() {
       {/* Scoreboard */}
       <div className="mt-4 grid grid-cols-2 gap-3 text-center" role="status" aria-label="Scoreboard">
         <div className="rounded-2xl bg-slate-800/70 p-3">
-          <div className="text-xs uppercase text-slate-400">You {target !== null && aiBattingFirst ? "(chasing)" : ""}</div>
+          <div className="text-xs uppercase text-slate-400">{myTeam} {target !== null && aiBattingFirst ? "(chasing)" : ""}</div>
           <div className="text-2xl font-black text-white">{myRuns}</div>
           <div className="text-xs text-slate-400">{myBalls}/{limit} balls • {myWicketsLost}/{wicketFormat} wkts{myOut ? " • ALL OUT" : ""}</div>
         </div>
         <div className="rounded-2xl bg-slate-800/70 p-3">
-          <div className="text-xs uppercase text-slate-400">Computer</div>
+          <div className="text-xs uppercase text-slate-400">{aiTeam}</div>
           <div className="text-2xl font-black text-white">{aiRuns}</div>
           <div className="text-xs text-slate-400">{aiBalls}/{limit} balls • {aiWicketsLost}/{wicketFormat} wkts{aiOut ? " • ALL OUT" : ""}</div>
         </div>

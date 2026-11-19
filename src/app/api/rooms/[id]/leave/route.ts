@@ -24,23 +24,13 @@ export async function POST(
     await store.messages.insert({
       roomId, playerId: player.id, playerName: player.name,
       avatar: player.avatar, kind: "system",
-      content: `${player.name} left`,
+      content: `${player.name} left the room`,
     });
 
-    // If empty or host left with no players, close the room.
-    const remainingPlayers = members.filter((m) => m.role === "player");
-    let newHostId = room.hostId;
-    let newHostName = room.hostName;
-    let status = room.status;
-    if (members.length === 0) {
-      status = "closed";
-    } else if (room.hostId === player.id && remainingPlayers.length > 0) {
-      newHostId = remainingPlayers[0].id;
-      newHostName = remainingPlayers[0].name;
-    }
-
+    // 🚪 The room STAYS OPEN after anyone leaves (even if empty) and keeps its
+    // original owner's name — only the owner can delete it (DELETE /api/rooms).
     await store.rooms.update(roomId, {
-      members, status, hostId: newHostId, hostName: newHostName,
+      members,
       updatedAt: new Date().toISOString(),
     });
     return Response.json({ ok: true });

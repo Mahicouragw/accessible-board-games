@@ -528,19 +528,20 @@ export default function OnlineMatch({
     }
   }
 
-  // Invite a specific friend by their Player ID (they get the match request
+  // Invite a specific friend by their NAME (they get the match request
   // and can accept it — see /api/match/invites + InviteWatcher).
-  const [inviteCode, setInviteCode] = useState("");
-  async function inviteByCode() {
-    if (!player || !inviteCode.trim()) return;
+  // Player IDs are only for logging in — invites always use names.
+  const [inviteName, setInviteName] = useState("");
+  async function inviteByNameFn() {
+    if (!player || !inviteName.trim()) return;
     setBusy(true);
     setStage("searching");
-    announce(`Sending invite to ${inviteCode.trim().toUpperCase()}…`);
+    announce(`Sending invite to ${inviteName.trim()}…`);
     try {
       const res = await fetch("/api/match/challenge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: player.code, opponentCode: inviteCode.trim(), game }),
+        body: JSON.stringify({ code: player.code, opponentName: inviteName.trim(), game }),
       });
       const data = await res.json();
       if (!res.ok || !data.match) throw new Error(data.error || "Invite failed");
@@ -575,57 +576,60 @@ export default function OnlineMatch({
           <p className="mt-2 text-slate-400">
             Play a live player or challenge the AI.
           </p>
-          <div className="mt-6 space-y-3">
-            <button
-              onClick={() => find(false)}
-              disabled={busy}
-              className="w-full rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 px-4 py-4 text-lg font-bold text-white transition hover:opacity-90 disabled:opacity-50"
-            >
-              🎲 Random match — online players
-            </button>
-            <div className="flex gap-2">
-              <input
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-                placeholder="Friend&apos;s Player ID (6 chars)"
-                maxLength={6}
-                aria-label="Friend's Player ID to invite"
-                className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 font-mono tracking-[0.2em] text-white outline-none focus:border-violet-500"
-              />
-              <button
-                onClick={inviteByCode}
-                disabled={busy || !inviteCode.trim() || !player}
-                className="shrink-0 rounded-2xl bg-gradient-to-r from-violet-500 to-fuchsia-600 px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
-              >
-                ✉️ Invite
-              </button>
+          <div className="mt-6 space-y-5">
+            {/* 🌐 Online multiplayer — only online options here */}
+            <div className="rounded-2xl border border-sky-800/60 bg-sky-950/30 p-4">
+              <div className="mb-3 text-xs font-bold uppercase tracking-wide text-sky-400">🌐 Online multiplayer</div>
+              <div className="space-y-3">
+                <button
+                  onClick={() => find(false)}
+                  disabled={busy}
+                  className="w-full rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 px-4 py-4 text-lg font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+                >
+                  🎲 Random match — online players
+                </button>
+                <div className="flex gap-2">
+                  <input
+                    value={inviteName}
+                    onChange={(e) => setInviteName(e.target.value)}
+                    placeholder="Friend&apos;s name (e.g. Asha)"
+                    maxLength={24}
+                    aria-label="Friend's name to invite"
+                    className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-white outline-none focus:border-violet-500"
+                  />
+                  <button
+                    onClick={inviteByNameFn}
+                    disabled={busy || !inviteName.trim() || !player}
+                    className="shrink-0 rounded-2xl bg-gradient-to-r from-violet-500 to-fuchsia-600 px-4 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+                  >
+                    ✉️ Invite
+                  </button>
+                </div>
+              </div>
             </div>
-            <button
-              onClick={() => find(true)}
-              disabled={busy}
-              className="w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-4 text-lg font-bold text-white transition hover:opacity-90 disabled:opacity-50"
-            >
-              🤖 Play vs AI
-            </button>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => startLocal("ai")}
-                className="rounded-2xl bg-slate-800 border-2 border-emerald-500/50 px-3 py-3 text-sm font-bold text-emerald-300 transition hover:bg-slate-700"
-              >
-                🤖 vs AI (offline — always works)
-              </button>
-              <button
-                onClick={() => startLocal("pvp")}
-                className="rounded-2xl bg-slate-800 border-2 border-violet-500/50 px-3 py-3 text-sm font-bold text-violet-300 transition hover:bg-slate-700"
-              >
-                👥 2 Players on this device
-              </button>
+            {/* 🤖 Offline — AI / local, no multiplayer buttons here */}
+            <div className="rounded-2xl border border-emerald-800/60 bg-emerald-950/20 p-4">
+              <div className="mb-3 text-xs font-bold uppercase tracking-wide text-emerald-400">🤖 Offline — just you (and the AI)</div>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => find(true)}
+                  disabled={busy}
+                  className="rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 px-3 py-3 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
+                >
+                  🤖 Play vs AI
+                </button>
+                <button
+                  onClick={() => startLocal("pvp")}
+                  className="rounded-2xl bg-slate-800 border-2 border-violet-500/50 px-3 py-3 text-sm font-bold text-violet-300 transition hover:bg-slate-700"
+                >
+                  👥 2 Players on this device
+                </button>
+              </div>
             </div>
           </div>
           <p className="mt-4 text-xs text-slate-500">
             🎲 Random: you join the queue — when another player also picks Random for this game, your match starts automatically.
-            ✉️ Invite: send a match request to a friend&apos;s Player ID; they accept it from the home screen.
-            Online needs a login + the cloud database. Offline modes work for everyone, no account needed.
+            ✉️ Invite by NAME: your friend accepts from their 🔔 Notifications. Online needs a login + the cloud database; offline modes work for everyone, no account needed.
           </p>
         </div>
       </div>

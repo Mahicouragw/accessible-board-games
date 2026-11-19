@@ -18,7 +18,10 @@ export type GameId =
   | "football-penalty"
   | "tetris"
   | "basketball"
-  | "monster-battle";
+  | "monster-battle"
+  | "dice-race"
+  | "sound-simon"
+  | "reaction-rush";
 
 export type GameInfo = {
   id: GameId;
@@ -201,6 +204,33 @@ export const GAMES: GameInfo[] = [
     color: "from-orange-500 to-red-600",
     online: false,
     scoreLabel: "Goals",
+  },
+  {
+    id: "dice-race",
+    name: "Dice Race",
+    emoji: "🏁",
+    tagline: "Roll the dice, race from 1 to 100 — ladders boost, snakes slip! vs AI or 2 players on one device. Real dice sounds.",
+    color: "from-amber-500 to-orange-600",
+    online: false,
+    scoreLabel: "Best race score",
+  },
+  {
+    id: "sound-simon",
+    name: "Sound Simon",
+    emoji: "🔊",
+    tagline: "Listen to the sound sequence and repeat it — playable entirely by ear! 4 sound pads, 8 rounds to win.",
+    color: "from-violet-500 to-fuchsia-600",
+    online: false,
+    scoreLabel: "Best round",
+  },
+  {
+    id: "reaction-rush",
+    name: "Reaction Rush",
+    emoji: "⚡",
+    tagline: "Wait for the whistle, tap as fast as you can! 5 rounds, average reaction time vs the computer.",
+    color: "from-sky-500 to-blue-700",
+    online: false,
+    scoreLabel: "Best avg (ms)",
   },
   {
     id: "monster-battle",
